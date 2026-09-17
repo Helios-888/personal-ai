@@ -29,7 +29,7 @@ llm01 上の Open WebUI に「空海AI」を RAG で構築するためのリポ�
 |---|---|---|
 | 0 | 基盤確認 | 完了（2026-09-17） |
 | 1 | リポジトリ骨格と同期スクリプト | 完了（2026-09-17。GitHub private `Helios-888/personal-ai` へ push 済） |
-| 2 | 声の設計（RAG 無し） | 未着手 |
+| 2 | 声の設計（RAG 無し） | 着手中（2026-09-17〜。思考 OFF を採用、voice.md 下書き 1 を確認済。記録は `evaluations/kukai/phase2-voice-check/`） |
 | 3 | 評価セット凍結と基準値取得 | 未着手 |
 | 4 | Knowledge 投入 | 未着手 |
 | 5 | 調整と打ち切り判断 | 未着手 |

@@ -2,15 +2,19 @@
 
 モデル交換時に捨てる場所。起動オプション、効いた言い回し、効かなかった指示を記録する。
 
-## 起動オプション（llama-swap エントリ `kukai`、2026-09-17）
+## 起動オプション（llama-swap エントリ `kukai`、2026-09-17 22:54 に思考 OFF を追加）
 
 ```
 llama-server --port ${PORT}
   --model /srv/models/Qwen3.8-27B-Q4_K_M.gguf
   --ctx-size 65536 --n-predict 16384 --n-gpu-layers 99
   --cache-type-k q8_0 --cache-type-v q8_0
+  --reasoning-budget 0
+  --chat-template-kwargs '{"enable_thinking":false}'
   --host 127.0.0.1
 ```
+
+`--jinja` はこのビルドでは既定で有効のため付けていない。思考 OFF の根拠は下の「思考 ON / OFF の比較」。
 
 ## 実測（Phase 0、2026-09-17）
 

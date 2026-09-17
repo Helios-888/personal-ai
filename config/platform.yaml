@@ -18,7 +18,12 @@ llama_swap:
   url: http://localhost:8080
   entry: kukai                          # 空海AI用エントリ（Phase 0 で追加）
   model_file: /srv/models/Qwen3.8-27B-Q4_K_M.gguf
-  args: "--ctx-size 65536 --n-predict 16384 --n-gpu-layers 99 --cache-type-k q8_0 --cache-type-v q8_0"
+  display_name: "Qwen3.8-27B (Kukai base, 64k, no-think)"
+  args: >-
+    --ctx-size 65536 --n-predict 16384 --n-gpu-layers 99
+    --cache-type-k q8_0 --cache-type-v q8_0
+    --reasoning-budget 0 --chat-template-kwargs '{"enable_thinking":false}'
+  reasoning: off                        # 2026-09-17 Phase 2 入口で決定。思考 ON は出力枠を使い切り本文が出ないため
   group: gpu-exclusive                  # script-writer 系と排他
 
 gpu:
