@@ -16,7 +16,7 @@ if __package__ in (None, ""):  # スクリプトとして直接実行された�
 import requests  # noqa: E402
 import yaml  # noqa: E402
 
-from scripts.lib.agent import validate_agent  # noqa: E402
+from scripts.lib.agent import load_agent  # noqa: E402
 from scripts.lib.env import load_dotenv  # noqa: E402
 from scripts.lib.openwebui_client import OpenWebUIClient, OpenWebUIError  # noqa: E402
 from scripts.lib.prompt_builder import build_system_prompt, is_over_budget, load_parts  # noqa: E402
@@ -51,10 +51,10 @@ def run(
         print("error: OPENWEBUI_API_KEY が設定されていません（.env を確認してください）", file=sys.stderr)
         return 2
 
-    agent = yaml.safe_load((root / args.agent).read_text(encoding="utf-8"))
-    problem = validate_agent(agent)
-    if problem:
-        print(f"error: {problem}", file=sys.stderr)
+    try:
+        agent = load_agent(root, args.agent)
+    except ValueError as error:
+        print(f"error: {error}", file=sys.stderr)
         return 2
     spec = agent["system_prompt"]
     system_prompt = build_system_prompt(load_parts(root, spec["parts"]))

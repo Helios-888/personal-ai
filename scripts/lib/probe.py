@@ -6,6 +6,8 @@ import yaml
 
 from scripts.lib.llm_client import ChatResult
 
+DEFAULT_KIND = "その他"
+
 
 @dataclass(frozen=True)
 class Question:
@@ -22,6 +24,10 @@ class TranscriptHeader:
     max_tokens: int
     system_tokens: int
     tokens_exact: bool
+    model: str = ""  # どのモデル・どの定義で問うたかを記録に残す（比較の土俵の証拠）
+    base_url: str = ""
+    agent: str = ""
+    note: str = ""  # 途中で中断したときなどの注記
 
 
 @dataclass(frozen=True)
@@ -31,16 +37,18 @@ class ProbeRecord:
 
 
 def load_questions(path: Path) -> list[Question]:
-    """`questions:` の一覧を順に読む。text の無い項目は番号を添えて失敗する。"""
+    """`questions:` の一覧を順に読む。text の無い項目は番号を添えて失敗する。質問文の改行は空白 1 つに畳む。"""
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     entries = data.get("questions") if isinstance(data, dict) else None
     if not isinstance(entries, list) or not entries:
         raise ValueError(f"{path}: questions は 1 件以上の一覧である必要があります")
     questions: list[Question] = []
     for index, entry in enumerate(entries, start=1):
-        if not isinstance(entry, dict) or not str(entry.get("text") or "").strip():
-            raise ValueError(f"{path}: {index} 番目の質問に text がありません")
-        questions.append(Question(kind=str(entry.get("kind") or ""), text=str(entry["text"]).strip()))
+        text = entry.get("text") if isinstance(entry, dict) else None
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError(f"{path}: {index} 番目の質問に text（文字列）がありません")
+        kind = entry.get("kind")
+        questions.append(Question(kind=str(kind).strip() if kind else DEFAULT_KIND, text=" ".join(text.split())))
     return questions
 
 
@@ -53,6 +61,10 @@ def render_transcript(header: TranscriptHeader, records: list[ProbeRecord]) -> s
         "",
         f"システムプロンプト {header.system_tokens} トークン{estimate}。",
     ]
+    if header.model:
+        lines.append(f"モデル {header.model}（{header.base_url}）、定義 {header.agent}。")
+    if header.note:
+        lines.extend(["", header.note])
     for record in records:
         lines.extend(["", *_section(record)])
     return "\n".join(lines) + "\n"

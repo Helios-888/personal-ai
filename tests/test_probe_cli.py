@@ -184,3 +184,113 @@ def test_main_turns_network_errors_into_one_line_and_exit_1(tmp_path, monkeypatc
     err = capsys.readouterr().err
     assert "refused" in err
     assert "Traceback" not in err
+
+
+# --- レビュー指摘への回帰テスト（2026-09-18） ---
+
+
+class FailingChat(RecordingChat):
+    """指定回数目の呼び出しで通信失敗を起こす。"""
+
+    def __init__(self, fail_at: int):
+        super().__init__()
+        self.fail_at = fail_at
+
+    def __call__(self, *args, **kwargs):
+        if len(self.calls) + 1 == self.fail_at:
+            import requests
+
+            self.calls.append(kwargs)
+            raise requests.ConnectionError("llama-swap down")
+        return super().__call__(*args, **kwargs)
+
+
+def test_run_saves_the_answers_collected_so_far_when_a_later_question_fails(tmp_path, capsys):
+    import requests
+
+    root = make_repo(tmp_path)
+
+    with pytest.raises(requests.ConnectionError):
+        run_cli(["--label", "x"], root, chat=FailingChat(fail_at=2))
+
+    out = root / "evaluations" / "kukai" / "phase2-voice-check" / "2026-09-18-x.md"
+    assert out.is_file()
+    text = out.read_text(encoding="utf-8")
+    assert "答 問一" in text
+    assert "問二" not in text.split("## [語調]")[1].split("##")[0]  # 2 問目の節は無い
+    assert "中断" in text
+    assert "1/2" in text
+
+
+def test_transcript_records_model_url_and_agent_path_for_fair_comparison(tmp_path):
+    root = make_repo(tmp_path)
+
+    run_cli(["--label", "x"], root, env={"LLAMA_SWAP_URL": "http://llm:8080", "LLAMA_SWAP_MODEL": "kukai-q8"})
+
+    text = (root / "evaluations" / "kukai" / "phase2-voice-check" / "2026-09-18-x.md").read_text(encoding="utf-8")
+    assert "kukai-q8" in text
+    assert "http://llm:8080" in text
+    assert "agents/kukai/agent.yaml" in text
+
+
+def test_run_warns_when_reasoning_comes_back_although_conditions_say_thinking_is_off(tmp_path, capsys):
+    root = make_repo(tmp_path)
+
+    class ThinkingChat(RecordingChat):
+        def __call__(self, *args, **kwargs):
+            result = super().__call__(*args, **kwargs)
+            return ChatResult(**{**result.__dict__, "reasoning": "We need to answer"})
+
+    rc, _ = run_cli(["--label", "x"], root, chat=ThinkingChat())
+
+    assert rc == 0
+    assert "思考" in capsys.readouterr().err
+
+
+def test_run_rejects_a_label_that_could_escape_the_output_folder(tmp_path, capsys):
+    root = make_repo(tmp_path)
+
+    rc, chat = run_cli(["--label", "../../outside"], root)
+
+    assert rc == 2
+    assert "label" in capsys.readouterr().err
+    assert chat.calls == []
+    assert not (root / "evaluations" / "kukai" / "outside.md").exists()
+
+
+def test_run_accepts_an_absolute_out_dir_and_still_exits_0(tmp_path):
+    root = make_repo(tmp_path)
+    elsewhere = tmp_path.parent / f"{tmp_path.name}-elsewhere"  # リポジトリ（tmp_path）の外
+
+    rc, _ = run_cli(["--label", "x", "--out-dir", str(elsewhere)], root)
+
+    assert rc == 0
+    assert (elsewhere / "2026-09-18-x.md").is_file()
+
+
+def test_run_returns_2_with_a_message_when_questions_yaml_is_malformed(tmp_path, capsys):
+    root = make_repo(tmp_path)
+    (root / "evaluations" / "kukai" / "phase2-voice-check" / "questions.yaml").write_text("questions: []\n", encoding="utf-8")
+
+    rc, chat = run_cli(["--label", "x"], root)
+
+    assert rc == 2
+    assert "questions" in capsys.readouterr().err
+    assert chat.calls == []
+
+
+def test_run_returns_2_when_temperature_is_not_a_number(tmp_path, capsys):
+    root = make_repo(tmp_path)
+    agent = {**AGENT_YAML, "params": {"temperature": "ぬるめ"}}
+    (root / "agents" / "kukai" / "agent.yaml").write_text(yaml.safe_dump(agent, allow_unicode=True), encoding="utf-8")
+
+    rc, chat = run_cli(["--label", "x"], root)
+
+    assert rc == 2
+    assert "temperature" in capsys.readouterr().err
+    assert chat.calls == []
+
+
+def test_run_rejects_a_non_positive_max_tokens(tmp_path):
+    with pytest.raises(SystemExit):
+        run_cli(["--label", "x", "--max-tokens", "0"], make_repo(tmp_path))

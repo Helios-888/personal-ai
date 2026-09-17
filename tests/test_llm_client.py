@@ -119,3 +119,22 @@ def test_chat_completion_uses_a_long_timeout_by_default_because_answers_take_ten
     call(fake_post)
 
     assert seen["timeout"] >= 300
+
+
+# --- レビュー指摘への回帰テスト（2026-09-18） ---
+
+
+def test_chat_completion_puts_status_and_server_body_in_the_http_error_message():
+    with pytest.raises(requests.HTTPError) as excinfo:
+        call(lambda url, json, timeout: FakeResponse(400, {"error": "x"}, text='{"error":"model not found"}'))
+
+    assert "400" in str(excinfo.value)
+    assert "model not found" in str(excinfo.value)
+
+
+def test_chat_completion_joins_text_parts_when_the_server_returns_content_as_a_list():
+    payload = completion_payload([{"type": "text", "text": "若者"}, {"type": "text", "text": "よ"}])
+
+    result = call(lambda url, json, timeout: FakeResponse(200, payload))
+
+    assert result.content == "若者よ"

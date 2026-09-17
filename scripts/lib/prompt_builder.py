@@ -13,14 +13,20 @@ def build_system_prompt(parts: list[str]) -> str:
     return "\n\n".join(cleaned) + "\n"
 
 
+def resolve_inside(root: Path, relative: str) -> Path:
+    """root からの相対パスを解決する。root の外（`..` や絶対パス）を指すなら失敗する。"""
+    base = Path(root).resolve()
+    path = (base / relative).resolve()
+    if not path.is_relative_to(base):
+        raise ValueError(f"path is outside the repository: {relative}")
+    return path
+
+
 def load_parts(root: Path, relative_paths: list[str]) -> list[str]:
     """root からの相対パスを順に読み、本文のリストを返す。無いファイルは名前を添えて失敗する。"""
-    base = Path(root).resolve()
     texts: list[str] = []
     for relative in relative_paths:
-        path = (base / relative).resolve()
-        if not path.is_relative_to(base):
-            raise ValueError(f"system prompt part is outside the repository: {relative}")
+        path = resolve_inside(root, relative)
         if not path.is_file():
             raise FileNotFoundError(f"system prompt part not found: {relative}")
         texts.append(path.read_text(encoding="utf-8"))

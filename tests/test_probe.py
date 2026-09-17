@@ -99,3 +99,46 @@ def test_render_transcript_separates_sections_with_a_blank_line_and_ends_with_a_
 
     assert "\nA\n\n## [b] q2\n" in md
     assert md.endswith("B\n")
+
+
+# --- レビュー指摘への回帰テスト（2026-09-18） ---
+
+
+def test_load_questions_collapses_line_breaks_inside_a_question_so_the_heading_stays_one_line(tmp_path):
+    path = write_questions(tmp_path / "q.yaml", "questions:\n  - kind: 語調\n    text: |\n      一行目\n      二行目\n")
+
+    assert load_questions(path) == [Question("語調", "一行目 二行目")]
+
+
+def test_load_questions_rejects_a_text_that_is_not_a_string(tmp_path):
+    path = write_questions(tmp_path / "q.yaml", "questions:\n  - kind: 語調\n    text: {a: 1}\n")
+
+    with pytest.raises(ValueError) as excinfo:
+        load_questions(path)
+
+    assert "text" in str(excinfo.value)
+
+
+def test_load_questions_gives_a_readable_default_kind(tmp_path):
+    path = write_questions(tmp_path / "q.yaml", "questions:\n  - text: 問い\n")
+
+    assert load_questions(path) == [Question("その他", "問い")]
+
+
+def test_render_transcript_names_model_url_and_agent_definition_below_the_token_line():
+    header = TranscriptHeader(
+        **{**HEADER.__dict__, "model": "kukai", "base_url": "http://localhost:8080", "agent": "agents/kukai/agent.yaml"}
+    )
+
+    md = render_transcript(header, [])
+
+    assert "システムプロンプト 2103 トークン。\nモデル kukai（http://localhost:8080）、定義 agents/kukai/agent.yaml。\n" in md
+
+
+def test_render_transcript_shows_the_interruption_note_when_given():
+    header = TranscriptHeader(**{**HEADER.__dict__, "note": "途中で中断（1/4 問まで）"})
+
+    md = render_transcript(header, [ProbeRecord(Question("a", "q1"), result("A"))])
+
+    assert "\n途中で中断（1/4 問まで）\n" in md
+    assert md.index("途中で中断") < md.index("## [a] q1")
