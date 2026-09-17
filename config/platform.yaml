@@ -1,0 +1,31 @@
+# llm01 プラットフォーム定義（2026-09-17 時点の実測。フォルダ外の設定はここに写しを残す）
+host: llm01
+ip: 192.168.12.18
+user: aiadmin
+os: Ubuntu Server 24.04
+
+openwebui:
+  version: 0.11.3
+  url: http://localhost:3000            # llm01 上から
+  url_from_windows: http://192.168.12.18:3000
+  compose: /home/aiadmin/docker/open-webui/compose.yaml
+  container_gpu: false                  # CPU 版 torch。埋め込み・リランカーは CPU 実行
+  llm_connection: http://172.17.0.1:8080/v1   # OpenAI 互換で llama-swap に接続
+
+llama_swap:
+  version: v252
+  config: /etc/llama-swap/config.yaml   # root 所有。変更は sudo で手動反映し、内容をここに写す
+  url: http://localhost:8080
+  entry: kukai                          # 空海AI用エントリ（Phase 0 で追加）
+  model_file: /srv/models/Qwen3.8-27B-Q4_K_M.gguf
+  args: "--ctx-size 65536 --n-predict 16384 --n-gpu-layers 99 --cache-type-k q8_0 --cache-type-v q8_0"
+  group: gpu-exclusive                  # script-writer 系と排他
+
+gpu:
+  name: RTX 3090
+  vram_mib: 24576
+  note: llama-swap と ComfyUI は同時実行不可
+
+samba:
+  ai: /home/aiadmin                     # Windows の Z:
+  webui-data: /var/lib/docker/volumes/open-webui/_data

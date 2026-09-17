@@ -1,0 +1,17 @@
+# 現代語訳（購入した電子書籍。私的利用の範囲なのでローカルのみ）
+knowledge/**/translations/
+
+# ログ・実行時生成物
+logs/
+*.pdf
+
+# 認証情報・仮想環境
+.env
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/

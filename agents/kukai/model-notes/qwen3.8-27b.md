@@ -1,0 +1,34 @@
+# Qwen3.8-27B（Q4_K_M）モデル依存メモ
+
+モデル交換時に捨てる場所。起動オプション、効いた言い回し、効かなかった指示を記録する。
+
+## 起動オプション（llama-swap エントリ `kukai`、2026-09-17）
+
+```
+llama-server --port ${PORT}
+  --model /srv/models/Qwen3.8-27B-Q4_K_M.gguf
+  --ctx-size 65536 --n-predict 16384 --n-gpu-layers 99
+  --cache-type-k q8_0 --cache-type-v q8_0
+  --host 127.0.0.1
+```
+
+## 実測（Phase 0、2026-09-17）
+
+| 項目 | 実測 |
+|---|---|
+| 初回ロード＋短文応答 | 17 秒 |
+| スロット | 4 スロット、各 n_ctx 65536 |
+| 長文入力 | 40,071 トークンを切り詰めなしで受理。プロンプト処理 1,018 tok/s、所要 42 秒 |
+| 生成速度 | 36.5 tok/s（入力 62 トークン時）、28.9 tok/s（入力 40k トークン時） |
+| VRAM | 20,908 MiB / 24,576 MiB。長文入力後も増えない（KV は起動時確保） |
+| 思考（reasoning） | 既定で ON。max_tokens 64 では思考だけで枠を使い切り本文が空になった |
+
+## 既知の癖（引き継ぎ書 §2 より）
+
+- 「自信を持った誤答」を出す。RAG なしの断定は信用しない。
+- 思考は与えた出力枠を使い切る。`--n-predict` の上限設定が必須。
+- 思考を切るには `--reasoning-budget 0` 単独では効かず、`--jinja --chat-template-kwargs '{"enable_thinking":false}'` との併用が必要（script-writer-cline エントリで実績）。
+
+## 効いた言い回し / 効かなかった指示
+
+（Phase 2 以降に追記）

@@ -1,0 +1,21 @@
+# 空海AI の登録定義。同期スクリプト（scripts/sync_openwebui.py）がこれを読んで Open WebUI に反映する
+id: kukai-ai
+name: 空海
+base_model_id: kukai                  # llama-swap のエントリ名（config/platform.yaml と一致）
+description: 空海（弘法大師）の著作と判断様式を再現する対話モデル。RAG 設計と評価手法の学習用。
+
+system_prompt:
+  # この順で連結する（引き継ぎ書 §3.2 三層構成。常時層＝判断様式・語り口・目録）
+  parts:
+    - agents/kukai/system.md
+    - agents/kukai/voice.md
+    - agents/kukai/rules.md
+    - agents/kukai/principles.md
+    - knowledge/kukai/index.md
+  budget_tokens: 5000                 # config/context-budget.yaml の system_prompt と一致させる
+
+params:
+  temperature: 0.7
+
+knowledge: []                         # Phase 4 で Knowledge 名を列挙（例: kukai-primary）
+filters: []                           # Filter Function の id（必要時）

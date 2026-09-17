@@ -1,0 +1,29 @@
+# Knowledge 各文書の frontmatter 仕様（引き継ぎ書 §5）
+# 各文書は Markdown。先頭に --- で囲んだ YAML を置く。
+
+example:
+  id: k-kukai-0001            # k-<agent>-<連番4桁>
+  title: 即身成仏義
+  author: 空海
+  category: primary_text      # primary_text | biography | letter | research | later_attribution | reference
+  year: 815
+  language_source: Classical Chinese
+  reliability: primary_text   # 下の区分から選ぶ
+  origin: SAT大正新脩大藏經テキストデータベース（T2428, 77巻）   # 出所の明記（SAT 利用条件）
+  license: public_domain
+  tags: [六大, 四曼, 三密]
+
+reliability:
+  primary_text: 本人の著作・同時代一次資料
+  translation: 現代語訳（訳者の解釈を含む）
+  commentary_premodern: 前近代の注釈
+  academic_research: 査読論文・研究書
+  later_attribution: 後世の偽託・伝承（御遺告など）。本人の言葉として引用してはならない
+  reference: 辞典・百科事典
+  ai_generated: AI 生成の要約。原則 Knowledge に入れない
+
+# 運用上の注意（Phase 0 の確認結果）
+# - Open WebUI の検索は frontmatter でフィルタできない。reliability ごとに Knowledge を分け、
+#   ファイル名の先頭に区分を付ける（例: primary__即身成仏義_T2428.md, later-attribution__御遺告_T2431.md）。
+#   LLM には <source name="ファイル名"> の形で渡るため、全チャンクで区分が見える。
+# - frontmatter は最初のチャンクにしか残らない。

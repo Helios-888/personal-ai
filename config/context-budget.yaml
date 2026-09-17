@@ -1,0 +1,7 @@
+# コンテキスト予算（引き継ぎ書 §3.4）。単位はトークン
+total: 65536
+system_prompt: 5000     # system + voice + rules + principles + index（同期スクリプトが超過を警告）
+knowledge: 12000        # RAG チャンク
+skills: 2000            # 必要時のみ
+history: 40000          # 会話履歴
+output: 6000            # 出力予備
