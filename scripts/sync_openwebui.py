@@ -16,6 +16,7 @@ if __package__ in (None, ""):  # スクリプトとして直接実行された�
 import requests  # noqa: E402
 import yaml  # noqa: E402
 
+from scripts.lib.agent import validate_agent  # noqa: E402
 from scripts.lib.env import load_dotenv  # noqa: E402
 from scripts.lib.openwebui_client import OpenWebUIClient, OpenWebUIError  # noqa: E402
 from scripts.lib.prompt_builder import build_system_prompt, is_over_budget, load_parts  # noqa: E402
@@ -26,7 +27,6 @@ DEFAULT_AGENT = "agents/kukai/agent.yaml"
 DEFAULT_OPENWEBUI_URL = "http://localhost:3000"
 DEFAULT_LLAMA_SWAP_URL = "http://localhost:8080"
 DEFAULT_LLAMA_SWAP_MODEL = "kukai"
-REQUIRED_AGENT_KEYS = ("id", "name", "base_model_id", "system_prompt")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -34,20 +34,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--agent", default=DEFAULT_AGENT, help="agent.yaml のパス（リポジトリ直下から）")
     parser.add_argument("--dry-run", action="store_true", help="送信せず差分とトークン数だけ表示する")
     return parser.parse_args(argv)
-
-
-def validate_agent(agent) -> Optional[str]:
-    """agent.yaml の形を確かめ、問題があればその説明を返す。"""
-    if not isinstance(agent, dict):
-        return "agent.yaml が辞書形式ではありません"
-    missing = [key for key in REQUIRED_AGENT_KEYS if key not in agent]
-    if missing:
-        return f"agent.yaml に必須項目がありません: {', '.join(missing)}"
-    spec = agent["system_prompt"]
-    parts = spec.get("parts") if isinstance(spec, dict) else None
-    if not isinstance(parts, list) or not parts or not all(isinstance(p, str) for p in parts):
-        return "agent.yaml の system_prompt.parts はファイルパスの一覧（1 件以上）である必要があります"
-    return None
 
 
 def run(
