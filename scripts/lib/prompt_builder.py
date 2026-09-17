@@ -15,9 +15,12 @@ def build_system_prompt(parts: list[str]) -> str:
 
 def load_parts(root: Path, relative_paths: list[str]) -> list[str]:
     """root からの相対パスを順に読み、本文のリストを返す。無いファイルは名前を添えて失敗する。"""
+    base = Path(root).resolve()
     texts: list[str] = []
     for relative in relative_paths:
-        path = Path(root) / relative
+        path = (base / relative).resolve()
+        if not path.is_relative_to(base):
+            raise ValueError(f"system prompt part is outside the repository: {relative}")
         if not path.is_file():
             raise FileNotFoundError(f"system prompt part not found: {relative}")
         texts.append(path.read_text(encoding="utf-8"))

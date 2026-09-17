@@ -1,4 +1,7 @@
 """tokens: llama-swap の tokenize でトークン数を数え、届かないときは概算に切り替える。"""
+import pytest
+import requests
+
 from scripts.lib.tokens import count_tokens
 
 
@@ -12,7 +15,7 @@ class FakeResponse:
 
     def raise_for_status(self):
         if self.status_code >= 400:
-            raise RuntimeError(f"HTTP {self.status_code}")
+            raise requests.HTTPError(f"HTTP {self.status_code}")
 
 
 def test_count_tokens_asks_llama_swap_tokenize_endpoint_for_the_model():
@@ -47,3 +50,11 @@ def test_count_tokens_falls_back_to_estimate_on_http_error():
 
     assert result.exact is False
     assert result.count == 2  # ceil(3 / 1.5)
+
+
+def test_count_tokens_does_not_hide_programming_errors_behind_the_estimate():
+    def fake_post(url, json, timeout):
+        raise TypeError("bug in caller")
+
+    with pytest.raises(TypeError):
+        count_tokens("abc", base_url="http://llm:8080", model="kukai", http_post=fake_post)

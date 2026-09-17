@@ -76,6 +76,27 @@ def test_update_model_posts_form_with_id_in_body_to_update_endpoint():
     assert body["id"] == "kukai-ai"
 
 
+class NonJsonResponse(FakeResponse):
+    def json(self):
+        raise ValueError("not json")
+
+
+def test_non_json_success_body_raises_error_instead_of_crashing():
+    client, _ = make_client(NonJsonResponse(200, "<html>proxy page</html>"))
+
+    with pytest.raises(OpenWebUIError) as excinfo:
+        client.get_model("kukai-ai")
+
+    assert "JSON" in str(excinfo.value)
+
+
+def test_null_json_body_on_success_raises_error():
+    client, _ = make_client(FakeResponse(200, None))
+
+    with pytest.raises(OpenWebUIError):
+        client.update_model("kukai-ai", {"id": "kukai-ai"})
+
+
 def test_unexpected_status_raises_error_mentioning_status_and_body():
     client, _ = make_client(FakeResponse(500, {"detail": "boom"}))
 

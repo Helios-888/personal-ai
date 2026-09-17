@@ -110,3 +110,58 @@ def test_apply_dry_run_sends_nothing_even_when_create_is_needed():
     apply_plan(plan, client, dry_run=True)
 
     assert client.calls == []
+
+
+# --- レビュー指摘への回帰テスト ---
+
+
+def test_build_model_form_rejects_system_inside_agent_params():
+    import pytest
+
+    with pytest.raises(ValueError) as excinfo:
+        build_model_form({**AGENT, "params": {"system": "handwritten"}}, "assembled")
+
+    assert "params.system" in str(excinfo.value)
+
+
+def test_plan_is_update_when_a_param_was_removed_from_agent_yaml():
+    desired = build_model_form({**AGENT, "params": {}}, "S")
+    existing = build_model_form(AGENT, "S")  # server still has temperature 0.7
+
+    assert plan_sync(desired, existing).action == "update"
+
+
+def test_plan_ignores_is_active_and_meta_fields_the_repo_does_not_manage():
+    form = build_model_form(AGENT, "S")
+    existing = {
+        **form,
+        "is_active": False,
+        "meta": {**form["meta"], "capabilities": {"vision": False}, "tags": [{"name": "x"}]},
+    }
+
+    assert plan_sync(form, existing).action == "noop"
+
+
+def test_update_form_keeps_existing_meta_fields_the_repo_does_not_manage():
+    desired = build_model_form(AGENT, "new")
+    existing = {
+        **build_model_form(AGENT, "old"),
+        "meta": {"description": "desc", "knowledge": [], "filterIds": [], "capabilities": {"vision": False}},
+    }
+
+    plan = plan_sync(desired, existing)
+
+    assert plan.action == "update"
+    assert plan.form["meta"]["capabilities"] == {"vision": False}
+    assert plan.form["meta"]["description"] == "desc"
+    assert plan.form["params"]["system"] == "new"
+
+
+def test_plan_lists_changed_fields_so_a_name_only_update_is_explained():
+    desired = build_model_form({**AGENT, "name": "空海（改）"}, "S")
+    existing = build_model_form(AGENT, "S")
+
+    plan = plan_sync(desired, existing)
+
+    assert plan.changes == ("name",)
+    assert plan.diff == ""

@@ -13,6 +13,13 @@ def test_load_dotenv_returns_empty_dict_when_file_is_missing(tmp_path):
     assert load_dotenv(tmp_path / ".env") == {}
 
 
+def test_load_dotenv_drops_inline_comments_and_export_prefix(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text('URL=http://x:3000  # メモ\nexport KEY=v\nHASH="a#b"\n', encoding="utf-8")
+
+    assert load_dotenv(env_file) == {"URL": "http://x:3000", "KEY": "v", "HASH": "a#b"}
+
+
 def test_load_dotenv_strips_matching_quotes(tmp_path):
     env_file = tmp_path / ".env"
     env_file.write_text('KEY="sk-abc"\nOTHER=\'x\'\n', encoding="utf-8")

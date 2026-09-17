@@ -54,4 +54,12 @@ class OpenWebUIClient:
             raise OpenWebUIAuthError(f"authentication failed (HTTP {response.status_code}): {response.text}")
         if response.status_code >= 400:
             raise OpenWebUIError(f"HTTP {response.status_code}: {response.text}")
-        return response.json()
+        try:
+            payload = response.json()
+        except ValueError as error:
+            raise OpenWebUIError(
+                f"HTTP {response.status_code}: response is not JSON: {str(response.text)[:200]}"
+            ) from error
+        if not isinstance(payload, dict):
+            raise OpenWebUIError(f"HTTP {response.status_code}: unexpected JSON payload: {str(payload)[:200]}")
+        return payload

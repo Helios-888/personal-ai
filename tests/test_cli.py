@@ -143,3 +143,85 @@ def test_run_uses_openwebui_url_from_env(tmp_path):
     _, created = run_cli([], tmp_path, client=client, env={"OPENWEBUI_API_KEY": "k", "OPENWEBUI_URL": "http://x:1"})
 
     assert created == [("http://x:1", "k")]
+
+
+# --- レビュー指摘への回帰テスト ---
+
+
+def test_run_returns_2_with_a_message_when_agent_yaml_is_malformed(tmp_path, capsys):
+    root = make_repo(tmp_path)
+    broken = {k: v for k, v in AGENT_YAML.items() if k != "system_prompt"}
+    (root / "agents" / "kukai" / "agent.yaml").write_text(yaml.safe_dump(broken), encoding="utf-8")
+    client = RecordingClient(existing=None)
+
+    rc = run([], root=root, env={"OPENWEBUI_API_KEY": "k"}, client_factory=lambda u, k: client, token_counter=None)
+
+    assert rc == 2
+    assert "system_prompt" in capsys.readouterr().err
+    assert client.calls == []
+
+
+def test_run_warns_on_stderr_when_token_count_is_only_an_estimate(tmp_path, capsys):
+    client = RecordingClient(existing=None)
+
+    rc, _ = run_cli(["--dry-run"], tmp_path, client=client, tokens=TokenCount(3, False))
+
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "estimat" in captured.err.lower()
+
+
+def test_run_prints_changed_fields_when_only_the_name_changed(tmp_path, capsys):
+    from scripts.lib.sync import build_model_form
+
+    agent = {**AGENT_YAML, "name": "旧名", "knowledge": [], "filters": []}
+    client = RecordingClient(existing=build_model_form(agent, "alpha\n\nbeta\n"))
+
+    rc, _ = run_cli(["--dry-run"], tmp_path, client=client)
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "plan: update kukai-ai" in out
+    assert "changed: name" in out
+
+
+def test_main_merges_dotenv_with_environ_and_wires_real_dependencies(tmp_path, monkeypatch):
+    import scripts.sync_openwebui as cli
+    from scripts.lib.openwebui_client import OpenWebUIClient
+    from scripts.lib.tokens import count_tokens
+
+    root = make_repo(tmp_path)
+    (root / ".env").write_text("OPENWEBUI_API_KEY=fromfile\nOPENWEBUI_URL=http://file:1\n", encoding="utf-8")
+    monkeypatch.setenv("OPENWEBUI_URL", "http://env:2")
+    seen = {}
+
+    def fake_run(argv, *, root, env, client_factory, token_counter):
+        seen.update(argv=argv, root=root, env=env, client_factory=client_factory, token_counter=token_counter)
+        return 0
+
+    monkeypatch.setattr(cli, "run", fake_run)
+
+    assert cli.main(["--dry-run"], root=root) == 0
+    assert seen["argv"] == ["--dry-run"]
+    assert seen["env"]["OPENWEBUI_API_KEY"] == "fromfile"
+    assert seen["env"]["OPENWEBUI_URL"] == "http://env:2"  # 環境変数が .env より優先
+    assert seen["client_factory"] is OpenWebUIClient
+    assert seen["token_counter"] is count_tokens
+
+
+def test_main_turns_openwebui_and_network_errors_into_one_line_and_exit_1(tmp_path, monkeypatch, capsys):
+    import requests
+
+    import scripts.sync_openwebui as cli
+    from scripts.lib.openwebui_client import OpenWebUIError
+
+    root = make_repo(tmp_path)
+    (root / ".env").write_text("OPENWEBUI_API_KEY=k\n", encoding="utf-8")
+
+    for error in (OpenWebUIError("HTTP 500: boom"), requests.ConnectionError("refused")):
+        monkeypatch.setattr(cli, "run", lambda *a, **k: (_ for _ in ()).throw(error))
+
+        assert cli.main([], root=root) == 1
+        err = capsys.readouterr().err
+        assert str(error) in err
+        assert "Traceback" not in err

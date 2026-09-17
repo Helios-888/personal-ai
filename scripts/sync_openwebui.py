@@ -1,6 +1,6 @@
 """agents/<agent>/agent.yaml を Open WebUI のカスタムモデルとして登録・更新する。
 
-使い方（リポジトリ直下で）:
+使い方（llm01 のリポジトリ直下で。API キーが平文で流れるため localhost 向けに使う）:
   .venv/bin/python scripts/sync_openwebui.py --dry-run   # 差分とトークン数だけ表示
   .venv/bin/python scripts/sync_openwebui.py             # 登録・更新
 """
@@ -8,15 +8,16 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 if __package__ in (None, ""):  # スクリプトとして直接実行されたとき、リポジトリ直下を import 経路に加える
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import requests  # noqa: E402
 import yaml  # noqa: E402
 
 from scripts.lib.env import load_dotenv  # noqa: E402
-from scripts.lib.openwebui_client import OpenWebUIClient  # noqa: E402
+from scripts.lib.openwebui_client import OpenWebUIClient, OpenWebUIError  # noqa: E402
 from scripts.lib.prompt_builder import build_system_prompt, is_over_budget, load_parts  # noqa: E402
 from scripts.lib.sync import apply_plan, build_model_form, plan_sync  # noqa: E402
 from scripts.lib.tokens import TokenCount, count_tokens  # noqa: E402
@@ -25,6 +26,7 @@ DEFAULT_AGENT = "agents/kukai/agent.yaml"
 DEFAULT_OPENWEBUI_URL = "http://localhost:3000"
 DEFAULT_LLAMA_SWAP_URL = "http://localhost:8080"
 DEFAULT_LLAMA_SWAP_MODEL = "kukai"
+REQUIRED_AGENT_KEYS = ("id", "name", "base_model_id", "system_prompt")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -32,6 +34,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--agent", default=DEFAULT_AGENT, help="agent.yaml のパス（リポジトリ直下から）")
     parser.add_argument("--dry-run", action="store_true", help="送信せず差分とトークン数だけ表示する")
     return parser.parse_args(argv)
+
+
+def validate_agent(agent) -> Optional[str]:
+    """agent.yaml の形を確かめ、問題があればその説明を返す。"""
+    if not isinstance(agent, dict):
+        return "agent.yaml が辞書形式ではありません"
+    missing = [key for key in REQUIRED_AGENT_KEYS if key not in agent]
+    if missing:
+        return f"agent.yaml に必須項目がありません: {', '.join(missing)}"
+    spec = agent["system_prompt"]
+    parts = spec.get("parts") if isinstance(spec, dict) else None
+    if not isinstance(parts, list) or not parts or not all(isinstance(p, str) for p in parts):
+        return "agent.yaml の system_prompt.parts はファイルパスの一覧（1 件以上）である必要があります"
+    return None
 
 
 def run(
@@ -50,6 +66,10 @@ def run(
         return 2
 
     agent = yaml.safe_load((root / args.agent).read_text(encoding="utf-8"))
+    problem = validate_agent(agent)
+    if problem:
+        print(f"error: {problem}", file=sys.stderr)
+        return 2
     spec = agent["system_prompt"]
     system_prompt = build_system_prompt(load_parts(root, spec["parts"]))
 
@@ -58,15 +78,19 @@ def run(
         base_url=env.get("LLAMA_SWAP_URL", DEFAULT_LLAMA_SWAP_URL),
         model=env.get("LLAMA_SWAP_MODEL", DEFAULT_LLAMA_SWAP_MODEL),
     )
-    budget = int(spec.get("budget_tokens", 0))
+    budget = int(spec.get("budget_tokens") or 0)
     exactness = "exact" if tokens.exact else "estimated"
     print(f"system prompt: {len(spec['parts'])} parts, {tokens.count} tokens ({exactness}) / budget {budget}")
+    if not tokens.exact:
+        print("warning: token count is an estimate (llama-swap tokenize was unreachable)", file=sys.stderr)
     if budget and is_over_budget(tokens.count, budget):
         print(f"warning: system prompt exceeds budget ({tokens.count} > {budget} tokens)", file=sys.stderr)
 
     client = client_factory(env.get("OPENWEBUI_URL", DEFAULT_OPENWEBUI_URL), api_key)
     plan = plan_sync(build_model_form(agent, system_prompt), client.get_model(agent["id"]))
     print(f"plan: {plan.action} {agent['id']}")
+    if plan.changes:
+        print("changed: " + ", ".join(plan.changes))
     if plan.diff:
         print(plan.diff)
 
@@ -82,10 +106,20 @@ def run(
     return 0
 
 
-def main() -> int:
-    root = Path(__file__).resolve().parents[1]
-    env = {**load_dotenv(root / ".env"), **os.environ}
-    return run(sys.argv[1:], root=root, env=env, client_factory=OpenWebUIClient, token_counter=count_tokens)
+def main(argv: Optional[list[str]] = None, root: Optional[Path] = None) -> int:
+    repo_root = Path(root) if root else Path(__file__).resolve().parents[1]
+    env = {**load_dotenv(repo_root / ".env"), **os.environ}  # 環境変数が .env より優先
+    try:
+        return run(
+            sys.argv[1:] if argv is None else argv,
+            root=repo_root,
+            env=env,
+            client_factory=OpenWebUIClient,
+            token_counter=count_tokens,
+        )
+    except (OpenWebUIError, requests.RequestException, OSError, yaml.YAMLError, ValueError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

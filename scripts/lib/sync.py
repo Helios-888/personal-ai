@@ -2,12 +2,19 @@
 
 agent.yaml → Open WebUI の ModelForm を組み立て、既存モデルと比べて
 create / update / noop のどれかを決める。HTTP は client に委ねる。
+
+比較するのはリポジトリが管理する項目だけ：name、base_model_id、meta の
+description / knowledge / filterIds、params 全体。サーバーが付け足す項目
+（profile_image_url、capabilities、tags、is_active など）は比較せず、更新時は
+既存値を引き継ぐ。
 """
 import difflib
 from dataclasses import dataclass
 from typing import Literal, Optional, Protocol
 
 Action = Literal["create", "update", "noop"]
+COMPARED_TOP_LEVEL_KEYS = ("name", "base_model_id")
+MANAGED_META_KEYS = ("description", "knowledge", "filterIds")
 
 
 class ModelClient(Protocol):
@@ -21,10 +28,14 @@ class SyncPlan:
     action: Action
     form: dict
     diff: str = ""
+    changes: tuple[str, ...] = ()
 
 
 def build_model_form(agent: dict, system_prompt: str) -> dict:
     """agent.yaml の内容を Open WebUI v0.11.3 の ModelForm の形にする。"""
+    params = dict(agent.get("params") or {})
+    if "system" in params:
+        raise ValueError("agent.yaml の params.system は指定できません（system_prompt.parts から組み立てます）")
     return {
         "id": agent["id"],
         "base_model_id": agent["base_model_id"],
@@ -34,7 +45,7 @@ def build_model_form(agent: dict, system_prompt: str) -> dict:
             "knowledge": list(agent.get("knowledge") or []),
             "filterIds": list(agent.get("filters") or []),
         },
-        "params": {"system": system_prompt, **(agent.get("params") or {})},
+        "params": {**params, "system": system_prompt},
         "is_active": True,
     }
 
@@ -42,9 +53,15 @@ def build_model_form(agent: dict, system_prompt: str) -> dict:
 def plan_sync(desired: dict, existing: Optional[dict]) -> SyncPlan:
     if existing is None:
         return SyncPlan("create", desired)
-    if _matches(desired, existing):
+    changes = changed_fields(desired, existing)
+    if not changes:
         return SyncPlan("noop", desired)
-    return SyncPlan("update", desired, diff=_system_prompt_diff(existing, desired))
+    return SyncPlan(
+        "update",
+        _merge_for_update(desired, existing),
+        diff=_system_prompt_diff(existing, desired),
+        changes=changes,
+    )
 
 
 def apply_plan(plan: SyncPlan, client: ModelClient, *, dry_run: bool) -> Optional[dict]:
@@ -55,18 +72,42 @@ def apply_plan(plan: SyncPlan, client: ModelClient, *, dry_run: bool) -> Optiona
     return client.update_model(plan.form["id"], plan.form)
 
 
-def _matches(desired: dict, existing: dict) -> bool:
-    """desired にある項目だけを比べる（サーバー側が付け足す項目は無視）。"""
-    for key, value in desired.items():
-        current = existing.get(key)
-        if isinstance(value, dict):
-            if not isinstance(current, dict):
-                return False
-            if any(current.get(sub_key) != sub_value for sub_key, sub_value in value.items()):
-                return False
-        elif current != value:
-            return False
-    return True
+def changed_fields(desired: dict, existing: dict) -> tuple[str, ...]:
+    """リポジトリ管理下の項目のうち、サーバー側と異なるものの名前を返す。"""
+    changed: list[str] = []
+    for key in COMPARED_TOP_LEVEL_KEYS:
+        if existing.get(key) != desired.get(key):
+            changed.append(key)
+    existing_meta = existing.get("meta") or {}
+    for key in MANAGED_META_KEYS:
+        if _normalize(existing_meta.get(key)) != _normalize(desired["meta"].get(key)):
+            changed.append(f"meta.{key}")
+    if (existing.get("params") or {}) != desired["params"]:
+        changed.append("params")
+    return tuple(changed)
+
+
+def _normalize(value):
+    """サーバーが None で返す空値をリポジトリ側の空値と同一視する。"""
+    return value if value is not None else _EMPTY
+
+
+class _Empty:
+    """None / [] / "" を同じ空値として比べるための番兵。"""
+
+    def __eq__(self, other):
+        return other is None or other == [] or other == "" or isinstance(other, _Empty)
+
+    __hash__ = None
+
+
+_EMPTY = _Empty()
+
+
+def _merge_for_update(desired: dict, existing: dict) -> dict:
+    """更新時は、リポジトリが管理しない meta 項目（画像・capabilities 等）を既存値から引き継ぐ。"""
+    merged_meta = {**(existing.get("meta") or {}), **desired["meta"]}
+    return {**desired, "meta": merged_meta}
 
 
 def _system_prompt_diff(existing: dict, desired: dict) -> str:

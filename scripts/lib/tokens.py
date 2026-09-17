@@ -10,7 +10,8 @@ from typing import Callable
 import requests
 
 CHARS_PER_TOKEN_ESTIMATE = 1.5
-_FALLBACK_ERRORS = (OSError, ValueError, KeyError, TypeError, RuntimeError, requests.RequestException)
+# 通信失敗・HTTP エラー・想定外の応答形だけを概算に切り替える。実装バグ（TypeError 等）は隠さない
+_FALLBACK_ERRORS = (requests.RequestException, OSError, ValueError, KeyError)
 
 
 @dataclass(frozen=True)

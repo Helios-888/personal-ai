@@ -30,6 +30,16 @@ def test_load_parts_names_the_missing_file_in_the_error(tmp_path):
     assert "missing.md" in str(excinfo.value)
 
 
+def test_load_parts_refuses_paths_outside_root(tmp_path):
+    outside = tmp_path.parent / "outside.md"
+    outside.write_text("secret", encoding="utf-8")
+
+    with pytest.raises(ValueError) as excinfo:
+        load_parts(tmp_path, ["../outside.md"])
+
+    assert "outside" in str(excinfo.value)
+
+
 def test_is_over_budget_is_true_only_when_count_exceeds_budget():
     assert is_over_budget(5001, 5000) is True
     assert is_over_budget(5000, 5000) is False

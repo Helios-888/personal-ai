@@ -44,6 +44,9 @@ cd /opt/personal-ai
 
 認証情報は `.env`（Git 管理外）に置く。`.env.example` を参照。
 
+- 同期は **llm01 上で** 実行する（既定の宛先は `http://localhost:3000`）。API キーは平文 HTTP で送られるため、LAN 越しに `http://192.168.12.18:3000` を指定しない。Windows から実行したい場合は `ssh -L 3000:localhost:3000 aiadmin@192.168.12.18` でポート転送する。
+- `.env` はホームフォルダ（Samba の Z: と同じ場所）に置かれる。共有の権限は本人のみである前提。
+
 ## テスト
 
 ```bash
