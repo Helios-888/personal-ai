@@ -16,7 +16,7 @@
 
 - 入力：`agents/kukai/agent.yaml`。`system_prompt.parts` に列挙したファイルをその順に連結してシステムプロンプトにする（区切りは空行 2 つ）。
 - トークン数：llama-swap の `/upstream/<model>/tokenize` で数える（本番モデルと同じ数え方）。到達できないときは文字数 ÷ 1.5 の概算に切り替えて警告を出す。`budget_tokens` 超過は警告（同期は止めない）。
-- Open WebUI API（`/api/v1/`）：`GET models/model?id=<id>` で存在確認。あれば `POST models/model/update?id=<id>`、なければ `POST models/create`。送る `ModelForm` は `{id, base_model_id, name, meta{description, knowledge, filterIds}, params{system, temperature…}, is_active}`（v0.11.3 は `access_grants`。省略時は本人のみ）。
+- Open WebUI API（`/api/v1/`）：`GET models/model?id=<id>` で存在確認（無ければ 404、権限なしは 401。実機で確認）。あれば `POST models/model/update`（対象は本文の `id` で指定。クエリではない）、なければ `POST models/create`。送る `ModelForm` は `{id, base_model_id, name, meta{description, knowledge, filterIds}, params{system, temperature…}, is_active}`（v0.11.3 は `access_grants`。省略時は本人のみ）。
 - 冪等：既存モデルの `params.system`・`name`・`base_model_id`・`meta.description` が同じなら更新を送らず「変更なし」と表示する。
 - `--dry-run`：送信せず、現在のシステムプロンプトとの差分（unified diff）とトークン数だけ表示する。
 - 認証：`.env` の `OPENWEBUI_API_KEY`（管理者の API キー）。未設定なら即エラー。
