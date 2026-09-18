@@ -157,6 +157,15 @@ questions:
 3. 記録を `evaluations/kukai/baseline/<日付>-<label>/` に、機械が読む `answers.jsonl` と人が読む `transcript.md` の 2 つで残す。上書きしない。途中で失敗したら、それまでを保存する（probe と同じ）。
 4. 記録の見出しに、`questions.sha256`・システムプロンプトの SHA-256・モデル・経路・条件を書く（比較の土俵の証拠）。
 
+**2026-09-18 追記（実装で決めたこと）。** 使い方はスクリプト冒頭の説明を正とする。
+
+- **Open WebUI の挙動（v0.11.3 の公開ソースで確認）**：カスタムモデルは登録済みの `params.system` を要求の先頭に足す。要求にも system があれば連結されて二重になるため、B1 では system を送らない。要求に入れた temperature・max_tokens は登録値より優先される。要求に `parent_id` が無ければチャット履歴は作られない。
+- **B1 の照合**：問う前に Open WebUI の `kukai-ai` の登録を取得し、リポジトリの定義（`sync_openwebui.py` と同じ比較）と食い違えば止める。agent.yaml の knowledge が空でなければ B1 は取らない。
+- **記録の場所**：`baseline/<日付>-<条件>[-<label>]/`。条件をフォルダ名に入れ、取り違えを防ぐ。`answers.jsonl` は 1 行目が見出し、回答を 1 件ずつ追記し、最後に完走か中断かの印（`"record": "end"`）を書く。
+- **baseline/ に置ける記録**：全問・既定の反復（3 回）で、定義（agent.yaml・parts・questions.yaml）とコード（`scripts/`）が Git にコミット済みのときだけ。見出しにコミットを記録する。先行確認などの絞り込みは `--out-dir` で別の場所に置く。
+- **入力トークン数**：各回答の `prompt_tokens` を記録する。同じ問いで回ごとに違えば、途中でシステムプロンプトか経路が変わったとして警告し、終わりの印に問いの id を書く。
+- **中断**：Ctrl-C・`kill`（SIGTERM）・ssh の切断（SIGHUP）のいずれでも、中断の印と「途中で中断」の transcript.md を書いてから止まる。1 条件に約 30 分かかるので、tmux の中で走らせる。
+
 ## 成功基準（Phase 3 の完了条件）
 
 1. `questions.yaml` 30 問＋ホールドアウト 2 問が凍結され、全 `key_points` に AI の記憶でない出典が付いている。凍結テストが通る。
