@@ -15,7 +15,8 @@
 | `questions.yaml` | 問いの文と正解の要点（出典つき） | 完全凍結。`questions.sha256` で照合 |
 | `rubric.yaml` | 判定の区分、多数決で割れたときの扱い、問いごとの誤答条件 | 凍結。1 回だけ改訂できる。`rubric.sha256` で照合 |
 | `errata.yaml` | 凍結後に見つかった問いの誤り | 凍結しない。追記のみ |
-| `baseline/` | RAG 無しの基準値（B0・B1） | Phase 3 で取得 |
+| `baseline/` | RAG 無しの基準値（B0・B1）。どの記録を採点に使うかは `baseline/README.md` | Phase 3 で取得（2026-09-19） |
+| `preflight/` | 本番前の経路と出力上限の確認（1 回ずつ） | 採点には使わない |
 | `runs/` | Phase 4 以降の実行結果 | |
 | `phase2-voice-check/` | Phase 2 の語り口の確認。評価セットとは別物 | 凍結対象外 |
 
