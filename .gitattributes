@@ -1,0 +1,4 @@
+# 凍結した評価セットは指紋（SHA-256）で守る。改行の自動変換でバイト列が変わらないようにする
+evaluations/kukai/questions.yaml -text
+evaluations/kukai/rubric.yaml -text
+evaluations/kukai/*.sha256 -text
