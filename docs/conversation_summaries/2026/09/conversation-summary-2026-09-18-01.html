@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会話まとめ 2026-09-18-01 — Phase 0/1 完了を実機で裏取り、Phase 2 着手済を確認、機密性の厳守事項を記録</title>
+<style>
+  body { font-family: "Segoe UI", "Yu Gothic UI", sans-serif; margin: 24px; color: #222; background: #fafafa; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-left: 6px solid #3b82f6; padding-left: 10px; background: #eef3fb; padding: 6px 10px; }
+  h3 { margin-top: 20px; color: #1e3a8a; border-bottom: 1px dashed #93c5fd; padding-bottom: 3px; }
+  h4 { margin-top: 14px; color: #1e40af; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #e5e7eb; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+  .ok   { background: #d1fae5 !important; }
+  .warn { background: #fef3c7 !important; }
+  .ng   { background: #fee2e2 !important; }
+  .info { background: #dbeafe !important; }
+  .muted { color: #666; }
+  .pos { color: #059669; font-weight: bold; }
+  .neg { color: #dc2626; font-weight: bold; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: "Consolas", "Courier New", monospace; }
+  pre  { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.45; }
+  ul, ol { line-height: 1.8; }
+
+  /* 会話まとめ固有 */
+  .headline-card { background: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 12px 0 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .headline-card .label { font-size: 12px; color: #1e40af; letter-spacing: 0.05em; }
+  .headline-card .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+  .conclusion { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+
+  /* 会話ログ */
+  .dialog { margin: 14px 0; }
+  .dialog-block { margin: 10px 0; padding: 10px 14px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; }
+  .dialog-block.master { border-left: 5px solid #2563eb; background: #eff6ff; }
+  .dialog-block.ai { border-left: 5px solid #6b7280; background: #f9fafb; }
+  .dialog-num { display: inline-block; min-width: 36px; font-family: "Consolas", monospace; font-size: 11px; color: #6b7280; margin-right: 6px; }
+  .speaker-master { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .speaker-ai     { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .dialog-body { margin-top: 6px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; }
+  .elide { display: inline-block; padding: 1px 8px; margin: 2px 0; background: #f3f4f6; color: #6b7280; font-style: italic; font-size: 12px; border-radius: 3px; border: 1px dashed #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>会話まとめ 2026-09-18-01</h1>
+<div class="headline-card">
+  <div class="label">HEADLINE</div>
+  <div class="value">Phase 0/1 完了を実機で裏取り、Phase 2 着手済を確認、機密性の厳守事項を記録</div>
+</div>
+<p class="meta">実施日: 2026-09-18 / セッション ID: session_01G5Uq7er3CFoma14EjBeN6q / ブランチ: main（llm01 上のリポジトリ personal-ai。ローカルフォルダ PersonalAI は非 git）</p>
+
+<h2>セッション概要</h2>
+<h3>起点</h3>
+<ul>
+  <li>前セッションが「Phase 0・1 完了、Phase 2 に入る所」で切れたとの申告。ローカルフォルダには引き継ぎ書と Phase 0 報告の 2 つの md ファイルのみ。</li>
+  <li>auto memory は空（このプロジェクトでの初回記録）。</li>
+</ul>
+<h3>進行段取り</h3>
+<ol>
+  <li>ローカルの md 2 件（引き継ぎ書、Phase 0 基盤確認報告）を通読</li>
+  <li>llm01 に SSH し、リポジトリ・GitHub 同期・テスト・Open WebUI 登録状態・llama-swap 設定を実測</li>
+  <li>Phase 2 の進捗（前セッションが残した 2 コミット）を把握し、未了項目と次の 1 手を報告</li>
+  <li>ご主人様の指示で機密性の厳守事項（会話履歴・無関係フォルダの探索禁止）をメモリに記録</li>
+  <li>API キーの把握状況を回答し、セッション終了</li>
+</ol>
+
+<h2>各段階のサマリ</h2>
+
+<h3>段階 1: 文書の通読</h3>
+<ul>
+  <li>引き継ぎ書（2026-09-11）：目的は RAG 設計・評価手法の習得と人格再現の検証。空海AI の完成度は追わない。Phase 5 で打ち止め。コマンドは 1 手ずつ提示。</li>
+  <li>Phase 0 報告（2026-09-17）：Open WebUI v0.11.3 の BM25 が漢文・日本語で機能しないという最重要発見。Phase 4 初回は「ベクトル＋リランカー＋目録層」で行う推奨。</li>
+  <li>同フォルダのスクリーンショットは Claude 設定画面で本件と無関係。</li>
+</ul>
+
+<h3>段階 2: llm01 の実測</h3>
+<table>
+  <tr><th>項目</th><th>結果</th><th>判定</th></tr>
+  <tr><td>リポジトリ</td><td><code>/home/aiadmin/personal-ai</code>（<code>/opt/personal-ai</code> はリンク）。作業ツリー clean、未追跡ファイルなし</td><td class="ok">正常</td></tr>
+  <tr><td>GitHub</td><td><code>Helios-888/personal-ai</code>（private）。ローカル HEAD <code>bdb16be</code> = リモート HEAD。SSH 鍵認証成功</td><td class="ok">一致</td></tr>
+  <tr><td>テスト</td><td>pytest 51 件すべて合格</td><td class="ok">正常</td></tr>
+  <tr><td>Open WebUI</td><td>カスタムモデル <code>kukai-ai</code>「空海」登録済。同期 dry-run は <code>noop</code>（リポジトリと一致）。Knowledge / Functions / Prompts は 0 件</td><td class="ok">設計どおり</td></tr>
+  <tr><td>llama-swap</td><td><code>kukai</code> エントリに思考 OFF（<code>--reasoning-budget 0</code> ＋ <code>enable_thinking:false</code>）適用済。設定更新と同時刻 22:54:46 に再起動済</td><td class="ok">適用済</td></tr>
+  <tr><td>API キー</td><td><code>.env</code> に <code>OPENWEBUI_API_KEY</code> 設定済（先頭 4 文字のみ確認）。dry-run 成功により有効性を確認</td><td class="ok">有効</td></tr>
+  <tr><td>書類のズレ</td><td>README のフェーズ表が Phase 2「未着手」のまま。platform.yaml の args と model-notes の起動オプション欄に思考 OFF フラグ未転記</td><td class="warn">要更新</td></tr>
+</table>
+
+<h3>段階 3: Phase 2 の進捗把握</h3>
+<ul>
+  <li>コミット <code>e366306</code>：思考 ON/OFF 比較。ON では max_tokens 1,200 で 3 問中 2 問が本文なし。OFF を採用。</li>
+  <li>コミット <code>bdb16be</code>：voice.md 下書き 1 と 4 問プローブ。一人称「わたし」、である調、出典行、架空書名の拒否が機能。</li>
+  <li>プローブ後に voice.md へ出典ルール（目録内の書名のみ、行いは「根拠：わたしの歩み」形式）が追記され、トークン数が 1,982 → 2,103 に増加。<span class="neg">追記後の文面は未検証</span>。</li>
+  <li><code>episodes/</code> は空、principles.md は種 3 項目のまま（目標 5〜10 項目）。</li>
+</ul>
+
+<h3>段階 4: 機密性の厳守事項の記録</h3>
+<ul>
+  <li>ご主人様の指示により、Open WebUI の会話履歴とプロジェクト外フォルダの探索を厳禁とするメモリを作成し、索引の先頭に配置。</li>
+  <li>本セッションで範囲を超えた操作 3 点（Z:\ 直下の一覧、<code>~/.ssh</code> のファイル名一覧、Open WebUI モデル一覧 API でプロジェクト外モデル名が表示）を申告。会話履歴は未読。</li>
+</ul>
+
+<h2>数値検証</h2>
+<table>
+  <tr><th>指標</th><th>値</th><th>備考</th></tr>
+  <tr><td>テスト合格数</td><td>51 / 51</td><td>pytest、llm01 の .venv で実行</td></tr>
+  <tr><td>システムプロンプト</td><td>2,103 トークン / 予算 5,000</td><td>5 ファイル連結。llama-swap tokenize による正確値</td></tr>
+  <tr><td>同期 dry-run</td><td>noop</td><td>Open WebUI 側とリポジトリが一致</td></tr>
+  <tr><td>コミット数</td><td>7</td><td>Phase 1 で 5、Phase 2 で 2</td></tr>
+  <tr><td>GPU 使用量</td><td>1 MiB / 24,576 MiB</td><td>モデル未ロード（TTL でアンロード済）</td></tr>
+</table>
+
+<h2>ご主人様の重要な気づき</h2>
+<ol>
+  <li><strong>機密性の厳守（今後の取り決め）</strong>：Open WebUI の会話履歴、および Open WebUI と関係のないフォルダの検索は厳禁。ローカル LLM を運用する意味は機密性にある。</li>
+  <li>Open WebUI の API キーは既に作成済であり、AI 側がそれを把握しているかを確認された（把握済と回答）。</li>
+</ol>
+
+<h2>関連メモリ</h2>
+<ul>
+  <li><code>confidentiality-no-browsing.md</code>（新設）— 会話履歴・プロジェクト外フォルダの探索厳禁。許可範囲（リポジトリ、phase0 フォルダ、llama-swap 設定、kukai 用 API）を明記</li>
+  <li><code>kukai-ai-project-state.md</code>（新設）— 所在・アクセス経路・Phase 0/1 完了・Phase 2 着手済・未了 4 点</li>
+  <li><code>kukai-ai-working-rules.md</code>（新設、後に更新）— コマンド 1 手ずつ、成功基準＋先行検証、選択メニュー禁止。厳守事項へのリンクを追加</li>
+  <li><code>MEMORY.md</code>（新設、後に更新）— 索引。厳守事項を先頭に配置</li>
+</ul>
+
+<h2>次セッションの推奨手順</h2>
+<h3>残作業</h3>
+<ul>
+  <li>改訂後 voice.md（2,103 トークン版）での 4 問再プローブ。下書き 1 で出た「『総合芸種智院』の設立趣旨」という出典行の誤りが消えたかを確認。</li>
+  <li>README のフェーズ表を Phase 2「着手済」に更新。platform.yaml と model-notes に思考 OFF の起動オプションを転記。</li>
+</ul>
+<h3>次フェーズ候補</h3>
+<ol>
+  <li>再プローブを <code>scripts/</code> に小さなプローブスクリプトとして残し、Phase 3 の評価実行（run-eval）の土台にする。</li>
+  <li>episodes の執筆と principles.md の 5〜10 項目への拡充。Phase 3 のホールドアウト用に 3〜5 件を書く時点で伏せる。</li>
+  <li>Phase 2 完了条件「RAG 無しで語調と判断傾向を確認」を満たしたら Phase 3（評価セット 30 問の凍結、基準値取得）へ。</li>
+</ol>
+<h3>再プローブの成功基準と先行検証</h3>
+<ul>
+  <li>成功基準：4 問すべてで出典行が目録内の書名か「根拠：わたしの歩み（…）」の形になり、下書き 1 の良かった点（一人称、である調、架空書名の拒否）が崩れないこと。</li>
+  <li>先行検証で判明する事実：追記した出典ルールを Qwen3.8-27B が守るか否か。守らなければ rules.md 側（モデル依存の表現）を調整する段階に入る。</li>
+</ul>
+<h3>学び</h3>
+<ul>
+  <li>「状況確認」であっても、探索範囲は事前に許可範囲へ絞る。ホームフォルダ直下の一覧や鍵フォルダの一覧は、目的が「有無の確認」でも範囲外に当たる。</li>
+  <li>プロンプト改訂とプローブ記録はトークン数で紐づけられる。記録に残るトークン数と現在値の差が「未検証の改訂がある」ことの証拠になる。</li>
+</ul>
+
+<h2>会話ログ</h2>
+<div class="dialog">
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#1</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">このフォルダにあるmdファイルを読んで。phase0と1が終わって次は2に入る所でセッションが切れた。各種設定やサーバーの成果物などの状況を確認して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#2</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">Phase 0/1 完了を実機で裏取り（GitHub 一致、テスト 51 件合格、同期 dry-run noop、思考 OFF 適用済）。Phase 2 は既に 2 手進行済（思考 OFF 決定、voice.md 下書き 1 とプローブ）。未了は改訂後 voice.md の再プローブ、episodes と principles 拡充、書類のズレ 3 か所。次の 1 手として再プローブを推奨。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#3</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">１つ今後の取り決めとして非常に重要な点を伝える。Open WebUIにある会話履歴および、その他、Open WebUIと関係のないフォルダを検索する事も厳禁だ。ローカルLLMの意味は機密性にあるのでその事を厳に順守する様にメモリへ記録せよ</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#4</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">厳守事項をメモリに記録し索引の先頭に配置。本セッションで範囲を超えた 3 点（Z:\ 直下の一覧、~/.ssh のファイル名一覧、モデル一覧 API）を申告。会話履歴は未読。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#5</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">Open WebUIのAPIキーは作成してある。把握できているか？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#6</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">把握済。.env に設定済で、同期 dry-run が通ったことで有効性も確認済。Phase 0 の持ち越し事項は Phase 1 で完了している。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#7</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">今日は遅いので明日から再開する。</div>
+  </div>
+
+</div>
+
+</body>
+</html>

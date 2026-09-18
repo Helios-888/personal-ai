@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会話まとめ 2026-09-18-04 — Phase 3 手順 3 完了：評価実行 run_eval.py と高野山の漏洩修正</title>
+<style>
+  body { font-family: "Segoe UI", "Yu Gothic UI", sans-serif; margin: 24px; color: #222; background: #fafafa; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-left: 6px solid #3b82f6; padding-left: 10px; background: #eef3fb; padding: 6px 10px; }
+  h3 { margin-top: 20px; color: #1e3a8a; border-bottom: 1px dashed #93c5fd; padding-bottom: 3px; }
+  h4 { margin-top: 14px; color: #1e40af; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #e5e7eb; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+  .ok   { background: #d1fae5 !important; }
+  .warn { background: #fef3c7 !important; }
+  .ng   { background: #fee2e2 !important; }
+  .info { background: #dbeafe !important; }
+  .muted { color: #666; }
+  .pos { color: #059669; font-weight: bold; }
+  .neg { color: #dc2626; font-weight: bold; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: "Consolas", "Courier New", monospace; }
+  pre  { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.45; }
+  ul, ol { line-height: 1.8; }
+
+  /* 会話まとめ固有 */
+  .headline-card { background: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 12px 0 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .headline-card .label { font-size: 12px; color: #1e40af; letter-spacing: 0.05em; }
+  .headline-card .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+  .conclusion { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+
+  /* 会話ログ */
+  .dialog { margin: 14px 0; }
+  .dialog-block { margin: 10px 0; padding: 10px 14px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; }
+  .dialog-block.master { border-left: 5px solid #2563eb; background: #eff6ff; }
+  .dialog-block.ai { border-left: 5px solid #6b7280; background: #f9fafb; }
+  .dialog-num { display: inline-block; min-width: 36px; font-family: "Consolas", monospace; font-size: 11px; color: #6b7280; margin-right: 6px; }
+  .speaker-master { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .speaker-ai     { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .dialog-body { margin-top: 6px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; }
+  .elide { display: inline-block; padding: 1px 8px; margin: 2px 0; background: #f3f4f6; color: #6b7280; font-style: italic; font-size: 12px; border-radius: 3px; border: 1px dashed #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>会話まとめ 2026-09-18-04</h1>
+<div class="headline-card">
+  <div class="label">HEADLINE</div>
+  <div class="value">Phase 3 手順 3 完了：評価実行 run_eval.py と高野山の漏洩修正</div>
+</div>
+<p class="meta">実施日: 2026-09-18 / セッション ID: 1e78682b-4b0a-4970-bcd8-92d15bf72334 / ブランチ: main（llm01 <code>/home/aiadmin/personal-ai</code>、GitHub private <code>Helios-888/personal-ai</code>）/ コミット: 14fe455・bd402ab・695aa6b・06d94af・4264646（すべて push 済）</p>
+
+<h2>セッション概要</h2>
+<p><strong>起点：</strong>Phase 3 の評価セット（32 問）は凍結・push 済み（275471f）。設計書 <code>docs/specs/2026-09-18-phase3-design.md</code> の手順は「3. run_eval.py をテストから作る」が次の状態。</p>
+<p><strong>進行段取り：</strong></p>
+<ol>
+  <li>再開と調査（設計書・既存コードの読み込み、Open WebUI v0.11.3 の公開ソースで挙動を確認）</li>
+  <li>run_eval.py をテストから実装（RED → GREEN）</li>
+  <li>code-reviewer によるレビューと指摘の反映</li>
+  <li>コミット・push（手順 3 の成果物）</li>
+  <li>system.md の「高野山を開き、」の削除と Open WebUI への同期</li>
+  <li>漏洩テストの常時層全体への拡大、設計書の更新、push</li>
+  <li>採点に使う記録の決まりを設計書に先に書いて push</li>
+</ol>
+
+<h2>各段階のサマリ</h2>
+
+<h3>段階 1: 再開と調査</h3>
+<ul>
+  <li>メモリ・設計書・既存コード（probe_voice.py、llm_client、freeze、sync）を読み、手順 3 が合意済みの次の作業であることを確認。</li>
+  <li>Open WebUI v0.11.3 の公開ソース（GitHub）を取得して確認した事実：
+    <table>
+      <tr><th>確認した挙動</th><th>設計への反映</th></tr>
+      <tr class="info"><td>カスタムモデルは登録済みの <code>params.system</code> を要求の先頭に足す（既に system があれば連結）</td><td>B1 ではシステムプロンプトを送らない</td></tr>
+      <tr class="info"><td>要求に入れた temperature・max_tokens は登録値より優先（<code>key not in form_data</code> のときだけ登録値）</td><td>B0・B1 を同じ値で揃えられる</td></tr>
+      <tr class="info"><td>要求に <code>parent_id</code> が無ければチャットは保存されない</td><td>API からの試験で履歴は増えない見込み（手順 4 で画面確認）</td></tr>
+    </table>
+  </li>
+  <li>基底モデル <code>kukai</code> の Open WebUI 登録は機密性の規則の許可範囲外のため読まず、手順 4 で「入力トークン数を両経路で比べる」測定で代替する方針にした。</li>
+</ul>
+
+<h3>段階 2: run_eval.py の実装（TDD）</h3>
+<ul>
+  <li>テストを先に書いて失敗を確認（RED）→ 実装（GREEN）。初回で 206 件合格、カバレッジ 98%。</li>
+  <li>実機では LLM を呼ばない経路のみ確認：凍結済み 32 問が内訳どおり読める（factual 15・trap 10・attribution 5・holdout 2）、存在しない問い id は終了コード 2。</li>
+</ul>
+
+<h3>段階 3: code-reviewer のレビューと反映</h3>
+<table>
+  <tr><th>区分</th><th>指摘</th><th>扱い</th></tr>
+  <tr class="ng"><td>HIGH</td><td>system.md の「高野山を開き」がホールドアウト 0005（H02）の目印。漏洩テストは principles.md しか見ていなかった</td><td>事実を確認。稼働中の変更になるため判断待ちとして提示 → 段階 5・6 で修正</td></tr>
+  <tr class="warn"><td>HIGH</td><td>B0 の送り先 <code>kukai</code> の Open WebUI 登録を確認していない（推測）</td><td>許可範囲外のため読まず、手順 4 で入力トークン数の経路間比較により確認する方針</td></tr>
+  <tr class="ok"><td>MEDIUM</td><td>prompt_tokens の照合、SIGHUP/SIGTERM 時の記録、完走の印、実行中の同期検出、Git コミットの記録、出力枠切れ警告の文言</td><td>反映（回ごとの入力トークン数の不一致を警告、終わりの印、シグナルを中断扱い、コミット記録と未コミット時の baseline 拒否、「両条件を同じ値で取り直す」）</td></tr>
+  <tr class="ok"><td>LOW</td><td>空の --only で全問実行、絞り込みが baseline/ に入る、終了コードの不揃い、API キーの repr、<code>{{</code> 置換、テストの抜け</td><td>反映</td></tr>
+  <tr class="warn"><td>LOW</td><td>usage 欠落時の prompt_tokens=0、既定値の重複</td><td>影響が小さく未対応</td></tr>
+</table>
+<p class="muted">反映後のテスト 233 件、カバレッジ 99%。修正後の 2 回目のレビューは行っていない。</p>
+
+<h3>段階 4: コミット・push（手順 3）</h3>
+<ul>
+  <li>本物の API キーが差分・新規ファイルに無いこと、<code>.env</code> が Git 管理外であること、凍結ファイルの指紋が不変であることを確認してからコミット。</li>
+  <li>14fe455（feat: run_eval 本体・部品・テスト 10 ファイル）、bd402ab（docs: 設計書に実装で決めたことを追記）。帰属表記は既存コミットの慣例に合わせて付けていない。</li>
+</ul>
+
+<h3>段階 5: 「高野山を開き、」の削除と同期</h3>
+<ul>
+  <li>句の出現は system.md 3 行目の 1 か所のみ。削除後、常時層全体の漏洩検査は 0 件。</li>
+  <li>同期の dry-run で差分がこの 1 句だけであることを確認 → 同期 → 直後の dry-run は noop。</li>
+</ul>
+
+<h3>段階 6: 漏洩テストの拡大・設計書・push</h3>
+<ul>
+  <li><code>holdout_leaks</code> に <code>where</code> 引数を追加し、テストは agent.yaml の parts すべてを検査。</li>
+  <li>修正前のコミットの写し（git worktree）で、広げたテストが「ep-kukai-0005 の『高野山』が agents/kukai/system.md に現れています」で落ち、現状では通ることを確認。写しは削除済み。</li>
+  <li>設計書：B1 のトークン数を 2,031 に更新、「着手時に判明したこと」4 として経緯と、基準値の前に直した理由を記載。695aa6b（fix）・06d94af（docs）を push。</li>
+</ul>
+
+<h3>段階 7: 採点に使う記録の決まり</h3>
+<ul>
+  <li>各条件で baseline/ に最初に完走した記録 1 つだけを採点に使う。中断・2 つ目以降は集計外だが消さずにコミットして残す。回答を読んでから選び直さない。</li>
+  <li>AI の判断で機械的な例外を 3 つ追加（入力トークン数の不一致、出力枠切れ 5% 超は両条件取り直し、B0/B1 の設定不一致は後の方を取り直し）。4264646 を push。</li>
+</ul>
+
+<h2>数値検証</h2>
+<table>
+  <tr><th>項目</th><th>開始時</th><th>終了時</th><th>備考</th></tr>
+  <tr><td>テスト件数</td><td>150</td><td class="pos">234</td><td>初回実装 206 → レビュー反映 233 → 漏洩テスト拡大 234</td></tr>
+  <tr><td>カバレッジ（scripts 全体）</td><td>98%</td><td class="pos">99%</td><td>run_eval.py 99%、evaluation.py・git_state.py 100%</td></tr>
+  <tr><td>B1 システムプロンプト</td><td>2,037 トークン</td><td>2,031 トークン</td><td>「高野山を開き、」の削除分</td></tr>
+  <tr><td>常時層の漏洩検査（全 parts）</td><td class="ng">1 件（system.md の「高野山」）</td><td class="ok">0 件</td><td>修正前の写しでテストが落ちることも確認</td></tr>
+  <tr><td>凍結ファイルの指紋</td><td colspan="2">questions.yaml・rubric.yaml とも不変（sha256sum -c OK）</td><td></td></tr>
+  <tr><td>未 push のコミット</td><td colspan="2">0（llm01 と origin/main は 4264646 で一致）</td><td></td></tr>
+</table>
+
+<h2>最終構成</h2>
+<h3>新規ファイル</h3>
+<table>
+  <tr><th>ファイル</th><th>行数</th><th>役割</th></tr>
+  <tr><td><code>scripts/run_eval.py</code></td><td>397</td><td>凍結した評価セットを B0/B1 のいずれかで問い、answers.jsonl と transcript.md に記録する CLI</td></tr>
+  <tr><td><code>scripts/lib/evaluation.py</code></td><td>210</td><td>問いの読み込み（id・kind・text のみ）、巡回順、記録の組み立て、終わりの印、入力トークン数の不一致検出</td></tr>
+  <tr><td><code>scripts/lib/git_state.py</code></td><td>28</td><td>HEAD のコミットと対象パスの未コミット変更の取得</td></tr>
+  <tr><td><code>scripts/lib/cli.py</code></td><td>21</td><td>probe_voice から移した共有関数（positive_int・display・LABEL_PATTERN）</td></tr>
+  <tr><td><code>tests/test_evaluation.py</code></td><td>279</td><td>部品のテスト</td></tr>
+  <tr><td><code>tests/test_run_eval_cli.py</code></td><td>775</td><td>CLI の流れ・拒否条件・中断・main のテスト</td></tr>
+  <tr><td><code>tests/test_git_state.py</code></td><td>70</td><td>偽の runner と実際の git リポジトリでのテスト</td></tr>
+</table>
+<h3>編集</h3>
+<table>
+  <tr><th>ファイル</th><th>変更</th></tr>
+  <tr><td><code>scripts/lib/llm_client.py</code></td><td>system=None で system を送らない、endpoint・headers 引数、prompt_tokens を返す</td></tr>
+  <tr><td><code>scripts/probe_voice.py</code></td><td>共有関数を lib/cli.py から import（中身は不変）</td></tr>
+  <tr><td><code>scripts/lib/episodes.py</code></td><td><code>holdout_leaks</code> に where 引数、文面を「常時層」基準に</td></tr>
+  <tr><td><code>agents/kukai/system.md</code></td><td>「高野山を開き、」を削除（Open WebUI へ同期済）</td></tr>
+  <tr><td><code>tests/test_llm_client.py</code>・<code>tests/test_episodes.py</code></td><td>回帰テスト追加、漏洩テストを parts 全体へ</td></tr>
+  <tr><td><code>docs/specs/2026-09-18-phase3-design.md</code></td><td>実装で決めたこと、着手時に判明したこと 4、採点に使う記録の決まり</td></tr>
+</table>
+<h3>検証</h3>
+<ul>
+  <li>pytest 234 件合格、カバレッジ 99%</li>
+  <li>実機：未コミットのコードでは baseline/ の記録を拒否、空の <code>--only</code> を拒否（いずれも LLM を呼ぶ前に停止）</li>
+  <li>同期後の <code>sync_openwebui.py --dry-run</code> は noop</li>
+</ul>
+
+<h2>ご主人様の重要な気づき</h2>
+<ol>
+  <li>手順 3 の成果物（run_eval 一式と設計書の追記）のコミットと push を承認した。</li>
+  <li>system.md の「高野山を開き、」を削って同期する判断をした（基準値を取る前に直す）。</li>
+  <li>漏洩テストを常時層全体に広げ、設計書も直してコミット・push するよう指示した。</li>
+  <li>「採点に使うのは各条件で最初に最後まで終わった答案だけ」という決まりを、基準値を取る前に設計書に書くよう指示した。</li>
+  <li>作業内容と結果について、分かりやすい説明を求めた。</li>
+</ol>
+
+<h2>関連メモリ</h2>
+<ul>
+  <li><code>kukai-ai-project-state.md</code> — 手順 3 完了と push 済みコミット、Open WebUI の確認事項、高野山の件の修正、採点記録の決まり、次は手順 4 を追記</li>
+  <li><code>MEMORY.md</code> — 空海AI プロジェクト状態の索引行を現状に更新</li>
+</ul>
+
+<h2>次セッションの推奨手順</h2>
+<h3>残作業</h3>
+<ul>
+  <li class="muted">未コミット・未 push の変更は無し。</li>
+  <li>レビューの LOW 2 件（usage 欠落時の prompt_tokens=0、既定値の重複）は未対応のまま。修正後の 2 回目のコードレビューは未実施。</li>
+</ul>
+<h3>次フェーズ候補</h3>
+<ol>
+  <li><strong>手順 4：経路の先行確認。</strong>B1・B0 それぞれ 1 問を、Open WebUI 経由と llama-swap 直の両方で問う（<code>--only &lt;id&gt; --repeats 1 --out-dir evaluations/kukai/preflight</code>）。入力トークン数が経路間で一致すること、同じ問いで回ごとに一定であることを確認。ご主人様にチャット履歴が増えていないことを画面で確認していただく。</li>
+  <li><strong>手順 5：B0・B1 の本番</strong>（各 32 問 × 3 回、約 1 時間、GPU 占有。tmux の中で実行し、ComfyUI と同時に動かさない）。</li>
+  <li><strong>手順 6：盲検採点</strong> → ご主人様の独立採点 20 回答 → <code>baseline/README.md</code>。</li>
+</ol>
+<h3>本番投入前のチェック</h3>
+<ul>
+  <li class="warn">入力トークン数が両経路で一致しない場合は、Open WebUI が何かを足している。基底モデル <code>kukai</code> の登録確認が必要になるが、許可範囲外のためご主人様に確認を依頼する。</li>
+  <li>先行確認が失敗した場合の撤退条件（llama-swap 直で取る）は設計書に記載済み。</li>
+</ul>
+<h3>学び</h3>
+<ul>
+  <li>漏洩の見張りは「検査対象のファイル」を限定すると穴になる。モデルに渡る文書の全体を対象にする。</li>
+  <li>テストが本当に効くかは、修正前の状態の写し（git worktree）で落ちることを見て確かめられる。稼働中のファイルに触れずに済む。</li>
+  <li>設定の食い違いは、中身を読まずに「入力トークン数の比較」で測れる。機密性の規則の範囲内で土俵を確かめる手段になる。</li>
+  <li>追記の日付を翌日（09-19）と誤記した。日付は実機の <code>date</code> で確かめてから書く。</li>
+</ul>
+
+<h2>会話ログ</h2>
+<div class="dialog">
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#1</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">phase3の続きから再開して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#2</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">手順 3 完了：run_eval.py をテストから作成（233 件合格、カバレッジ 99%、未コミット）。レビューで system.md の「高野山を開き」が H02 の目印と判明。判断待ち 3 点（コミット、句の削除、採点記録の決まり）を提示。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#3</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">今やったことと結果を分かりやすく説明して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#4</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">試験を実施して答案を保存するプログラムを作った。本番は未実施、稼働中には未送信。公平さの仕掛けと、自己紹介文が伏せ問題のヒントになっていた件を平易に説明。</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#5</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body"><span class="elide">[省略: レビュー待ちの間に AI が予約した自動再開が発火（ご主人様の発言ではない）]</span>
+レビュー結果は検討・反映済みと報告し、予約を停止。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#6</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">コミットしてpushして</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#7</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">14fe455（feat）・bd402ab（docs）を push。API キーの混入なし、凍結ファイルの指紋は不変、テスト 233 件合格。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#8</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">高野山の句を削って同期して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#9</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">削除して同期。2,037 → 2,031 トークン、同期後の dry-run は noop、常時層全体の漏洩 0 件。system.md は未コミット。テスト拡大と設計書の更新を提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#10</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">テストを広げて設計書も直してコミットしてpushして</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#11</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">695aa6b（fix）・06d94af（docs）を push。広げたテストは修正前の写しで落ち、現状で通る。テスト 234 件合格。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#12</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">決まりを設計書に書いてコミットしてpushして</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#13</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">4264646 を push。「最初に完走した記録 1 つだけを採点に使う」に、AI の判断で機械的な例外 3 つを追加したと報告。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#14</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">一旦区切ろうか</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#15</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">すべて push 済み、未保存の変更なし。次回の再開点は手順 4（先行確認）。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#16</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">/wrap-up</div>
+  </div>
+
+</div>
+
+</body>
+</html>

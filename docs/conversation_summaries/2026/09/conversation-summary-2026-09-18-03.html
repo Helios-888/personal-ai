@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会話まとめ 2026-09-18-03 — 空海AI Phase 3：評価セット 32 問を裏取りして凍結し push</title>
+<style>
+  body { font-family: "Segoe UI", "Yu Gothic UI", sans-serif; margin: 24px; color: #222; background: #fafafa; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-left: 6px solid #3b82f6; padding-left: 10px; background: #eef3fb; padding: 6px 10px; }
+  h3 { margin-top: 20px; color: #1e3a8a; border-bottom: 1px dashed #93c5fd; padding-bottom: 3px; }
+  h4 { margin-top: 14px; color: #1e40af; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #e5e7eb; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+  .ok   { background: #d1fae5 !important; }
+  .warn { background: #fef3c7 !important; }
+  .ng   { background: #fee2e2 !important; }
+  .info { background: #dbeafe !important; }
+  .muted { color: #666; }
+  .pos { color: #059669; font-weight: bold; }
+  .neg { color: #dc2626; font-weight: bold; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: "Consolas", "Courier New", monospace; }
+  pre  { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.45; }
+  ul, ol { line-height: 1.8; }
+
+  /* 会話まとめ固有 */
+  .headline-card { background: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 12px 0 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .headline-card .label { font-size: 12px; color: #1e40af; letter-spacing: 0.05em; }
+  .headline-card .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+  .conclusion { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+
+  /* 会話ログ */
+  .dialog { margin: 14px 0; }
+  .dialog-block { margin: 10px 0; padding: 10px 14px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; }
+  .dialog-block.master { border-left: 5px solid #2563eb; background: #eff6ff; }
+  .dialog-block.ai { border-left: 5px solid #6b7280; background: #f9fafb; }
+  .dialog-num { display: inline-block; min-width: 36px; font-family: "Consolas", monospace; font-size: 11px; color: #6b7280; margin-right: 6px; }
+  .speaker-master { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .speaker-ai     { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .dialog-body { margin-top: 6px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; }
+  .elide { display: inline-block; padding: 1px 8px; margin: 2px 0; background: #f3f4f6; color: #6b7280; font-style: italic; font-size: 12px; border-radius: 3px; border: 1px dashed #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>会話まとめ 2026-09-18-03</h1>
+<div class="headline-card">
+  <div class="label">HEADLINE</div>
+  <div class="value">空海AI Phase 3：評価セット 32 問を裏取りして凍結し push</div>
+</div>
+<p class="meta">実施日: 2026-09-18 / セッション ID: session_011Lt1HJHYHnaQtxDoK7uDkA / ブランチ: main（llm01 <code>/home/aiadmin/personal-ai</code>、GitHub private <code>Helios-888/personal-ai</code>）/ コミット: a5930dc・41faceb・4ed5637・275471f</p>
+
+<h2>セッション概要</h2>
+<p><strong>起点</strong>：Phase 0〜2 完了済み（episodes 8 件、principles.md 6 項目、システムプロンプト 2,037 トークン）。次は Phase 3「評価セット 30 問の凍結と RAG なしの基準値取得」。前回から持ち越しの発見として「福州の書簡は 2 通ある可能性」があった。</p>
+<p><strong>進行段取り</strong></p>
+<ol>
+  <li>再開手順（引き継ぎ書・リポジトリ状態の確認）と Phase 3 設計書の作成</li>
+  <li>正解の要点の裏取り（SAT 本文・辞典・研究書）と <code>questions.yaml</code> 32 問の下書き</li>
+  <li>「凍結」の説明と、採点基準を <code>rubric.yaml</code> に分けたうえでの凍結</li>
+  <li>code-reviewer の指摘を受けた見張り（凍結テスト）の補強と、改ざんの実演</li>
+  <li>4 コミットに分けて GitHub へ push</li>
+</ol>
+
+<h2>各段階のサマリ</h2>
+
+<h3>段階 1: 再開と Phase 3 設計書</h3>
+<ul>
+  <li>作業ツリー clean・origin と一致を確認。<code>docs/specs/2026-09-18-phase3-design.md</code> を作成。</li>
+  <li>比較条件を 2 つに：B0（1 文のみのシステムプロンプト）と B1（常時層のみ、Knowledge なし）。Phase 4 との差を「Knowledge の有無」だけにするため、経路は Open WebUI <code>/api/chat/completions</code> に統一。</li>
+  <li>1 問 3 回・多数決、盲検採点、利用者による独立採点 20 回答。指標に factual 正答率と過剰拒否率を追加（何でも断れば trap の拒否率が上がるため）。</li>
+  <li>基準値を見る前に決めた事項：「明確に上回る」は 2 問以上の差。B1 の trap 拒否が 9/10 以上なら、成功基準を「trap が下がらず factual が 2 問以上増える」に読み替える。</li>
+</ul>
+<table>
+  <tr><th>着手時の発見</th><th>扱い</th></tr>
+  <tr class="warn"><td>principles.md 第 1 項「密の経は、誰にも貸さぬ」は記録と食い違う（最澄は 809 年以降たびたび密典を借りた。断ったのは 813 年の『理趣釈経』）</td><td>基準値の後に直す。F13 で測る</td></tr>
+  <tr class="warn"><td>目録の一文「目録にない著作名は著作ではない」が『三教指帰』『性霊集』を誤って退けさせるおそれ</td><td>基準値の後に直す。F11・F12 で測る</td></tr>
+  <tr class="ok"><td>福州の観察使宛の書は 2 通（大使名義の代筆と、空海自身の入京の啓）。いずれも『性霊集』巻五</td><td>episode 0001 に追記済</td></tr>
+</table>
+
+<h3>段階 2: 正解の裏取りと questions.yaml の下書き</h3>
+<ul>
+  <li>SAT から 7 著作を取得し、行 ID 付きで正解を確認（F01〜F10、F15、A02 の 12 問）。例：御請来目録 T2161 1060c15〜19 に「大同元年十月二十二日」「高階眞人遠成」。</li>
+  <li>SAT 以外はコトバンク収録の複数辞典、武内孝善の研究書（入定留身信仰）、寺内浩 2019、奈良国立博物館などで裏取り。</li>
+  <li>架空書名は T01『六大縁起章』、T02『遍照密意鈔』（Web 検索で一致なし）。</li>
+  <li>Phase 2 のプローブ問は再利用しない（調整に使った問題で試験をすると B1 が有利になるため）。</li>
+</ul>
+<table>
+  <tr><th>裏取りが弱い箇所（コミットにも明記）</th><th>根拠の水準</th></tr>
+  <tr class="warn"><td>F13 最澄への貸与</td><td>Wikipedia「風信帖」（宮坂宥勝を典拠）＋奈良博解説の検索抜粋</td></tr>
+  <tr class="warn"><td>A01 虚空尽き…</td><td>寺院の講読資料で原文と日付は確認。『性霊集』の巻数は未確認のため採点に使わない</td></tr>
+  <tr class="warn"><td>A05 入定留身</td><td>出版社サイトの紹介記事</td></tr>
+  <tr class="warn"><td>T01・T02 架空書名</td><td>Web 検索のみ（SAT 全文検索は curl では機能せず、対照検索も 0 件だったため数えない）</td></tr>
+</table>
+
+<h3>段階 3: 凍結</h3>
+<ul>
+  <li>凍結の説明の中で不整合を発見：撤退条件「採点の定義を 1 回だけ書き直せる」と、採点基準を凍結ファイルに入れたことが矛盾 → 採点基準を <code>rubric.yaml</code> に分割（読み戻して 32 問すべて元データと一致を確認）。</li>
+  <li><code>questions.yaml</code> が CRLF になっていた（Windows 上の Python で書いたため）→ LF に統一。<code>.gitattributes</code> で改行変換を停止。</li>
+  <li>正誤表 <code>errata:</code> が凍結ファイルの中にあった → 凍結しない <code>errata.yaml</code> に分離。</li>
+  <li>凍結直前の読み直しで 3 点修正：F03 の問い文（頌は冒頭ではなく 0381c17）、T01 の出典表現（「後の」を削除）、A02 の誤答条件（『十住心論』に同句が無いことは未確認）。</li>
+  <li>凍結：questions <code>2e2ca6f7…</code>、rubric <code>c125b0cc…</code>。<code>sha256sum -c</code> でも OK。写しを 1 文字変えると検出されることを確認。</li>
+</ul>
+
+<h3>段階 4: レビュー対応</h3>
+<ul>
+  <li>code-reviewer：HIGH 1 件（記録ごと作り直すと検出できない）、MEDIUM 2 件、LOW 6 件。</li>
+  <li>対策：凍結時の指紋をテストのコードに直書きして二重照合（<code>QUESTIONS_DIGEST</code>、改訂履歴 <code>RUBRIC_DIGESTS</code>）。空の記録を残さない順序に修正。ホールドアウトの問いに episode の「判断」「根拠」節の文が無いかを文単位で照合。照合と読み込みを同じバイト列で行う <code>read_frozen_text</code> を追加。</li>
+  <li>不採用 1 件：「holdout_markers を問いと照合」案。目印（福州など）は状況文に必ず入るため、常に落ちる。</li>
+  <li>写しで攻撃を再現：記録を作り直すと <code>sha256sum -c</code> は OK を返すが、テストは落ちる（攻撃 A・B とも検出）。</li>
+</ul>
+
+<h3>段階 5: コミットと push</h3>
+<ul>
+  <li>秘密情報の検索でヒットなし、<code>.env</code> は管理外を確認。</li>
+  <li>Git に取り込んだ後の中身の指紋が凍結時の値と一致することを確認してから push。</li>
+</ul>
+
+<h2>数値検証</h2>
+<table>
+  <tr><th>項目</th><th>値</th></tr>
+  <tr><td>テスト件数</td><td>119 → 145（凍結）→ <span class="pos">150</span>（レビュー対応）。全件成功</td></tr>
+  <tr><td>カバレッジ</td><td>scripts 全体 98%、<code>scripts/lib/freeze.py</code> 100%</td></tr>
+  <tr><td>評価セット</td><td>factual 15・attribution 5・trap 10・holdout 2（計 32）</td></tr>
+  <tr><td>出典の内訳</td><td>SAT 本文の行 ID を含む問い 12、他は辞典・研究書・公的機関。弱い裏取り 4 件を明示</td></tr>
+  <tr class="ok"><td>凍結の指紋</td><td>questions <code>2e2ca6f789ced133…17de</code> / rubric <code>c125b0ccad027065…c4db</code>（push 後も一致）</td></tr>
+  <tr class="ok"><td>改ざんの実演</td><td>1 文字変更・記録の作り直し・採点基準の無記録改訂のいずれもテストで検出</td></tr>
+</table>
+
+<h2>最終構成</h2>
+<h3>新規ファイル（llm01 リポジトリ）</h3>
+<table>
+  <tr><th>パス</th><th>行数</th><th>役割</th></tr>
+  <tr><td><code>evaluations/kukai/questions.yaml</code></td><td>308</td><td>問いと正解の要点・出典（完全凍結）</td></tr>
+  <tr><td><code>evaluations/kukai/rubric.yaml</code></td><td>148</td><td>判定の区分・多数決の扱い・誤答条件（1 回だけ改訂可）</td></tr>
+  <tr><td><code>evaluations/kukai/errata.yaml</code></td><td>11</td><td>凍結後の誤りの記録（追記のみ）</td></tr>
+  <tr><td><code>evaluations/kukai/questions.sha256</code>・<code>rubric.sha256</code></td><td>各 1</td><td>指紋の記録（sha256sum 形式）</td></tr>
+  <tr><td><code>.gitattributes</code></td><td>4</td><td>凍結ファイルの改行変換を停止</td></tr>
+  <tr><td><code>scripts/lib/freeze.py</code></td><td>82</td><td>指紋の記録・照合・照合済み読み込み</td></tr>
+  <tr><td><code>tests/test_freeze.py</code></td><td>125</td><td>部品のテスト 17 件</td></tr>
+  <tr><td><code>tests/test_eval_freeze.py</code></td><td>152</td><td>実物の評価セットの見張り 14 件</td></tr>
+  <tr><td><code>docs/specs/2026-09-18-phase3-design.md</code></td><td>193</td><td>Phase 3 設計書</td></tr>
+</table>
+<h3>編集</h3>
+<ul>
+  <li><code>evaluations/kukai/README.md</code>：ファイル構成・指標を凍結後の実態に更新</li>
+  <li><code>agents/kukai/episodes/holdout/0001-福州での嘆願.md</code>：frontmatter に 2 通目の書簡を追記（状況・判断の節は不変）</li>
+</ul>
+<h3>検証</h3>
+<ul>
+  <li>全テスト 150 件成功、<code>sha256sum -c</code> 両ファイル OK、push 後 <code>main...origin/main</code> 一致</li>
+  <li>稼働中の空海AI（Open WebUI の <code>kukai-ai</code>）への同期・変更は行っていない</li>
+</ul>
+
+<h2>ご主人様の重要な気づき</h2>
+<ol>
+  <li>凍結の良否は自分では判断できないとして、判断を委ねたうえで凍結を承認した（「とりあえずこれで良いよ」）。</li>
+  <li>修正を指示すると同時に、全体の中で今何をしているかを分かりやすく説明するよう求めた。</li>
+  <li>「凍結とは？」と用語の意味を確かめてから判断に進んだ。</li>
+  <li>コミットと push を明示的に指示した。</li>
+  <li>会話を区切るべきかの判断を Claude に打診し、区切る前に会話の記録を指示した。</li>
+</ol>
+
+<h2>関連メモリ</h2>
+<ul>
+  <li><code>kukai-ai-project-state</code>：Phase 3 の設計・凍結・レビュー対応・push、着手時の発見 3 件、教訓（CRLF、SAT の取得手順）、次の一手を追記</li>
+  <li><code>kukai-trap-source-material</code>：最澄に経典を貸したこと自体は史実と訂正（誤りは principles.md 第 1 項の側）</li>
+  <li><code>MEMORY.md</code>：プロジェクト状態の索引行を更新</li>
+</ul>
+
+<h2>次セッションの推奨手順</h2>
+<h3>残作業（Phase 3）</h3>
+<ol>
+  <li><strong>手順 3</strong>：<code>scripts/run_eval.py</code> をテストから作る。凍結ファイルは <code>read_frozen_text</code> で読む。成功基準は「凍結の照合を通らないと実行できない」「3 回反復と途中失敗時の保存がテストで確かめられている」。</li>
+  <li><strong>手順 4</strong>：経路の先行確認（1 問）。Open WebUI のチャット履歴が増えていないことはご主人様が画面で確認する（履歴は機密性の規則により Claude は見ない）。基底モデル <code>kukai</code> が API から選べるかも確認。</li>
+  <li><strong>手順 5</strong>：B0・B1 の本番（192 回答、約 1 時間 GPU 占有、ComfyUI と同時実行しない）。</li>
+  <li><strong>手順 6</strong>：盲検採点 → ご主人様の独立採点 20 回答 → <code>baseline/README.md</code>。</li>
+</ol>
+<h3>基準値を取った後に扱うもの</h3>
+<ul>
+  <li>principles.md 第 1 項の修正、index.md の一文の修正（それぞれ変更一つとして）</li>
+  <li>SAT で解けた episode の未確認点の反映：0003「高階遠成に託した」（T2161 1060c15）、0002「灌頂の月次は御請来目録に記載」（1065a26〜b06）</li>
+</ul>
+<h3>学び</h3>
+<ul>
+  <li>Windows の Python（<code>io.open</code> の既定）で書くと CRLF になる。凍結物は llm01 上で書くか <code>newline="\n"</code> を指定する。</li>
+  <li>指紋の記録だけでは「記録ごと作り直す」改ざんを見逃す。凍結時の指紋をテストのコードにも持たせる二重照合で、変更を必ず差分に現れるようにした。</li>
+  <li>『性霊集』巻八〜十は散逸し 1079 年に済暹が補った部分。episode 0004・0008 の典拠（巻十）はここに入る。</li>
+  <li>SAT 詳細ページは <code>ddb-sat2.php?mode=detail&amp;useid=&lt;番号&gt;_</code> を curl（UA 指定）で取得できる。T2203A のみ行 ID に下線なし。長い著作は 1 ページに全文が載らない。</li>
+</ul>
+
+<h2>会話ログ</h2>
+<div class="dialog">
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#1</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">再開しよう。作業着手して下さい。</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#2</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">Phase 3 設計書を作成（B0・B1 の 2 条件、Open WebUI 経由、3 回反復・盲検採点、指標 2 つ追加）。着手時の発見 3 件（principles.md 第 1 項の食い違い、目録による過剰拒否のおそれ、福州の書簡 2 通）。手順 2 へ進む許可を依頼。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#3</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">手順2に進んで下さい</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#4</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">32 問の下書き完成。全問に出典（SAT 本文の行 ID 12 問）。裏取りが弱い 4 件を明示し、凍結前の確認点 3 つ（F03・F13・H02）を提示。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#5</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">凍結とは？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#6</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">評価セットを確定して以後変えないこと。同じ物差しで測り続けるためで、指紋（SHA-256）とテストで機械的に守る。採点基準の改訂規定との不整合に気づき、rubric.yaml への分割を推奨。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#7</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">凍結で良いか悪いかの判断はできないのでとりあえずこれで良いよ</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#8</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">採点基準を分けて凍結（questions 2e2ca6f7…、rubric c125b0cc…）。CRLF の修正、正誤表の分離、凍結直前に 3 点修正。テスト 145 件。後続のレビュー結果（HIGH 1 件：記録ごと作り直すと検出できない）を報告し、修正を提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#9</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">じゃぁ直して。今何をやっているか分かりやすく説明して。</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#10</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">全体の中での現在地（Phase 3 の物差し作り、見張りの補強中）を図で説明。指紋をテストに二重記録し、写しで攻撃 2 通りを再現して検出を確認。テスト 150 件、凍結ファイルの指紋は不変。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#11</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">コミットと pushして</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#12</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">4 コミット（a5930dc・41faceb・4ed5637・275471f）を push。取り込み後の指紋が凍結時と一致、テスト 150 件成功を確認。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#13</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">会話を区切った方が良いなら区切るが？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#14</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">区切りを推奨。作業が一段落し push 済み、次の run_eval.py は性質の違う作業で、引き継ぎは記憶に記録済みのため。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#15</span>
+    <span class="speaker-master">ご主人様</span>
+    <div class="dialog-body">会話を記録して</div>
+  </div>
+
+</div>
+
+</body>
+</html>
