@@ -1,13 +1,14 @@
 """episodes: 判断様式の層の読み込みと、ホールドアウト漏洩の検出。
 
-伏せた episode の判断が principles.md（常時層）に載ると、Phase 3 のホールドアウト試験は
-「覚えているか」を測るだけの試験になり無効化する。ここで機械的に弾く。
+伏せた episode の判断や目印が常時層（agent.yaml の parts。principles.md に限らない）に載ると、
+Phase 3 のホールドアウト試験は「覚えているか」を測るだけの試験になり無効化する。ここで機械的に弾く。
 """
 from pathlib import Path
 
 import pytest
 import yaml
 
+from scripts.lib.agent import load_agent
 from scripts.lib.episodes import (
     Episode,
     folder_mismatches,
@@ -130,6 +131,14 @@ def test_holdout_leaks_reports_the_marker_found_in_the_always_on_layer(tmp_path)
     assert "福州" in leaks[0]
 
 
+def test_holdout_leaks_names_the_part_where_the_marker_was_found(tmp_path):
+    write_episode(tmp_path, "0005-b.md", {"id": "ep-kukai-0005", "holdout": True, "holdout_markers": ["高野山"]}, holdout_dir=True)
+
+    leaks = holdout_leaks(load_episodes(tmp_path), "高野山を開き、", where="agents/kukai/system.md")
+
+    assert leaks == ["ep-kukai-0005（0005-b.md）の「高野山」が agents/kukai/system.md に現れています"]
+
+
 def test_holdout_leaks_also_catches_the_principle_sentence_itself(tmp_path):
     write_episode(
         tmp_path,
@@ -174,6 +183,8 @@ def test_unverified_principles_is_empty_once_verify_is_cleared(tmp_path):
 # --- 実際のリポジトリに対する検査（これが本番の防波堤） ---
 
 REPO = Path(__file__).resolve().parents[1]
+AGENT = "agents/kukai/agent.yaml"
+PRINCIPLES = "agents/kukai/principles.md"
 
 
 def test_repository_episodes_all_parse_and_sit_in_the_right_folder():
@@ -185,6 +196,16 @@ def test_repository_episodes_all_parse_and_sit_in_the_right_folder():
 
 
 def test_repository_holdout_judgements_have_not_leaked_into_the_always_on_layer():
-    principles = (REPO / "agents" / "kukai" / "principles.md").read_text(encoding="utf-8")
+    # principles.md だけでなく、常時層を成す parts をすべて見る。
+    # 2026-09-18、system.md の自己紹介「高野山を開き」（H02 の目印）を principles.md だけの検査が見逃した
+    parts = load_agent(REPO, AGENT)["system_prompt"]["parts"]
+    assert PRINCIPLES in parts  # 検査の対象から原則が外れていれば、この検査は空回りする
+    episodes = load_episodes(REPO)
 
-    assert holdout_leaks(load_episodes(REPO), principles) == []
+    leaks = [
+        leak
+        for part in parts
+        for leak in holdout_leaks(episodes, (REPO / part).read_text(encoding="utf-8"), where=part)
+    ]
+
+    assert leaks == []

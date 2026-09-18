@@ -1,8 +1,8 @@
 """episodes（判断様式の層）の読み込みと、ホールドアウト漏洩の検出。
 
-伏せた episode の判断が principles.md（常時層）に載ると、Phase 3 のホールドアウト試験は
-「覚えているか」を測るだけの試験になり無効化する。folder_mismatches と holdout_leaks が
-それを機械的に弾く。
+伏せた episode の判断や目印が常時層（agent.yaml の parts。principles.md に限らない）に載ると、
+Phase 3 のホールドアウト試験は「覚えているか」を測るだけの試験になり無効化する。
+folder_mismatches と holdout_leaks がそれを機械的に弾く。
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -51,15 +51,15 @@ def folder_mismatches(episodes: list[Episode]) -> list[Path]:
     return [e.path for e in episodes if e.holdout != e.in_holdout_folder]
 
 
-def holdout_leaks(episodes: list[Episode], principles_text: str) -> list[str]:
-    """伏せた episode の目印か判断文が常時層に現れていれば、その説明を返す。"""
+def holdout_leaks(episodes: list[Episode], layer_text: str, where: str = "常時層") -> list[str]:
+    """伏せた episode の目印か判断文が常時層の文書に現れていれば、その説明を返す。where はその文書の名前。"""
     leaks: list[str] = []
     for episode in episodes:
         if not episode.holdout:
             continue
         for term in (*episode.holdout_markers, episode.principle):
-            if term and term in principles_text:
-                leaks.append(f"{episode.id}（{episode.path.name}）の「{term}」が principles.md に現れています")
+            if term and term in layer_text:
+                leaks.append(f"{episode.id}（{episode.path.name}）の「{term}」が {where} に現れています")
     return leaks
 
 
