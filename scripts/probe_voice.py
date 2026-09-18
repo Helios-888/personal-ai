@@ -10,7 +10,6 @@ Phase 2（声の設計、RAG なし）の確認用。Phase 3 の評価実行（r
 import argparse
 import datetime as dt
 import os
-import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -23,6 +22,7 @@ import requests  # noqa: E402
 import yaml  # noqa: E402
 
 from scripts.lib.agent import load_agent  # noqa: E402
+from scripts.lib.cli import LABEL_PATTERN, display, positive_int  # noqa: E402
 from scripts.lib.env import load_dotenv  # noqa: E402
 from scripts.lib.llm_client import ChatResult, chat_completion  # noqa: E402
 from scripts.lib.probe import ProbeRecord, Question, TranscriptHeader, load_questions, render_transcript  # noqa: E402
@@ -38,7 +38,6 @@ DEFAULT_MAX_TOKENS = 800
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_CONDITIONS = "RAG なし、思考 OFF"
 THINKING_OFF_MARK = "思考 OFF"
-LABEL_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")  # ファイル名に埋め込むので区切り文字を許さない
 INPUT_ERRORS = (ValueError, OSError, yaml.YAMLError)  # 設定ファイルの不備はすべて終了コード 2
 
 
@@ -51,13 +50,6 @@ class ProbeSetup:
     model: str
     temperature: float
     out_path: Path
-
-
-def positive_int(value: str) -> int:
-    number = int(value)
-    if number <= 0:
-        raise argparse.ArgumentTypeError("1 以上の整数を指定してください")
-    return number
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -175,14 +167,6 @@ def save_transcript(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "x", encoding="utf-8") as file:  # 同名があれば失敗する（同時実行でも上書きしない）
         file.write(text)
-
-
-def display(path: Path, root: Path) -> str:
-    """表示用にリポジトリ相対へ。外のパスはそのまま返す（表示のために落とさない）。"""
-    try:
-        return str(path.relative_to(root))
-    except ValueError:
-        return str(path)
 
 
 def main(argv: Optional[list[str]] = None, root: Optional[Path] = None) -> int:

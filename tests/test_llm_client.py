@@ -2,7 +2,7 @@
 import pytest
 import requests
 
-from scripts.lib.llm_client import chat_completion
+from scripts.lib.llm_client import ChatResult, chat_completion
 
 
 class FakeResponse:
@@ -138,3 +138,48 @@ def test_chat_completion_joins_text_parts_when_the_server_returns_content_as_a_l
     result = call(lambda url, json, timeout: FakeResponse(200, payload))
 
     assert result.content == "若者よ"
+
+
+# --- Open WebUI 経路（Phase 3 の評価実行、2026-09-18） ---
+
+
+def test_chat_completion_sends_only_the_user_turn_when_system_is_none():
+    # Open WebUI のカスタムモデルは登録済みの system を自分で先頭に足す。こちらからも送ると二重になる
+    bodies = []
+
+    def fake_post(url, json, timeout):
+        bodies.append(json)
+        return FakeResponse(200, completion_payload("x"))
+
+    call(fake_post, system=None)
+
+    assert bodies[0]["messages"] == [{"role": "user", "content": "U"}]
+
+
+def test_chat_completion_can_target_another_endpoint_with_headers():
+    calls = []
+
+    def fake_post(url, json, timeout, headers):
+        calls.append((url, headers))
+        return FakeResponse(200, completion_payload("x"))
+
+    call(
+        fake_post,
+        base_url="http://owui:3000/",
+        endpoint="/api/chat/completions",
+        headers={"Authorization": "Bearer k"},
+    )
+
+    assert calls == [("http://owui:3000/api/chat/completions", {"Authorization": "Bearer k"})]
+
+
+def test_chat_completion_reports_prompt_tokens_to_compare_what_each_route_actually_sent():
+    result = call(lambda url, json, timeout: FakeResponse(200, completion_payload("x")))
+
+    assert result.prompt_tokens == 100
+
+
+def test_chat_result_prompt_tokens_defaults_to_zero_for_existing_callers():
+    result = ChatResult(content="c", reasoning="", finish_reason="stop", completion_tokens=1, elapsed_seconds=0.1)
+
+    assert result.prompt_tokens == 0

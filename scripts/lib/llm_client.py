@@ -1,14 +1,15 @@
-"""llama-swap（OpenAI 互換 API）の chat/completions を 1 往復だけ呼ぶ薄いラッパー。
+"""OpenAI 互換 API（llama-swap、Open WebUI）の chat/completions を 1 往復だけ呼ぶ薄いラッパー。
 
 ストリーミングはしない。思考（reasoning_content）は本文と分けて返す。
 """
 import time
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Optional
 
 import requests
 
 DEFAULT_TIMEOUT_SECONDS = 600  # 思考 ON だと 1 問に数分かかることがある
+DEFAULT_ENDPOINT = "/v1/chat/completions"  # llama-swap。Open WebUI は /api/chat/completions
 _BODY_PREVIEW_CHARS = 200
 
 
@@ -19,29 +20,37 @@ class ChatResult:
     finish_reason: str
     completion_tokens: int
     elapsed_seconds: float
+    prompt_tokens: int = 0  # 経路ごとに実際に送られた入力の大きさを比べるため
 
 
 def chat_completion(
     base_url: str,
     model: str,
     *,
-    system: str,
+    system: Optional[str],
     user: str,
     temperature: float,
     max_tokens: int,
+    endpoint: str = DEFAULT_ENDPOINT,
+    headers: Optional[dict] = None,
     http_post: Callable = requests.post,
     clock: Callable[[], float] = time.monotonic,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> ChatResult:
+    """system が None なら user の 1 通だけを送る（Open WebUI のカスタムモデルは登録済みの system を自分で先頭に足す）。"""
+    messages = [{"role": "user", "content": user}]
+    if system is not None:
+        messages = [{"role": "system", "content": system}, *messages]
     body = {
         "model": model,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": False,
     }
+    extra = {"headers": headers} if headers else {}
     started = clock()
-    response = http_post(f"{base_url.rstrip('/')}/v1/chat/completions", json=body, timeout=timeout)
+    response = http_post(f"{base_url.rstrip('/')}{endpoint}", json=body, timeout=timeout, **extra)
     if response.status_code >= 400:
         # 失敗理由（モデル未登録、コンテキスト超過など）はサーバの本文にしか無いので添える
         raise requests.HTTPError(
@@ -66,6 +75,7 @@ def _parse(payload, elapsed: float) -> ChatResult:
         finish_reason=str(choice.get("finish_reason") or ""),
         completion_tokens=int(usage.get("completion_tokens") or 0),
         elapsed_seconds=elapsed,
+        prompt_tokens=int(usage.get("prompt_tokens") or 0),
     )
 
 
