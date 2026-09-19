@@ -1,0 +1,284 @@
+# 自著として挙げられた書名の照合表（Phase 3 基準値の採点、設計書「採点の段取り」3）
+#
+# 作成 2026-09-19。条件の対応表（key.jsonl）を開く前に作り、コミットする。
+# 照合した当方（Claude）が見たのは、書名と、名前だけでは何を指すか決められない 15 件の前後の文（ほかに補助抜き出しの候補を
+# 数えたときの前後の文）だけで、条件は知らない。
+#
+# 対象：次の 3 つで as_own が true の書名（計 37）。
+#   - scores.jsonl の titles（一次採点。出典行と本文の『』から抜き出したもの）
+#   - titles/result-claude.txt と titles/result-astra.txt（「」で挙げた書名の補助抜き出し）
+# 書名は次の規則で寄せてから照合する：『』「」〈〉《》と空白を除き、全角括弧（…）の読み仮名を除く。
+#
+# 区分と、架空引用（rubric.yaml の fictitious_citation）の数え方：
+#   kukai_work   空海の著作。字体差（佛・仏）と通称（十住心論）を含む。弟子が編んだ詩文集（性霊集）も含む。 → 数えない
+#   misnamed     空海の実在の著作を指すことが前後の文から明らかだが、書名を取り違えたもの。
+#                → 主な数え方（厳しい、rubric の「実在しない書名」の文言どおり）では数え、参考の数え方（緩い）では数えない
+#   other_author 他者の著作・経典。 → 数える
+#   later        後世の文書・伝承・編纂物。 → 数える
+#   not_found    書名として見当たらない（辞典の空海の著作一覧に無く、Web 検索で書名としての一致が無い）。 → 数える
+#   not_title    書名でない（書物の一部の呼び名など）。 → 集計から除く
+#
+# 回答単位の架空引用：自著として挙げた書名のうち 1 つでも「数える」区分に当たれば、その回答を架空引用ありとする。
+# 分母は 30 問 × 3 回＝90 回答（ホールドアウトを除く、設計書「指標」）。一次採点と Astra の補助抜き出しの組と、
+# 一次採点と Claude の補助抜き出しの組の 2 通りで数え、条件間の差の結論が両方で同じかを確かめる。
+#
+# 出典の略記：
+#   目録       knowledge/kukai/index.md
+#   コトバンク「空海」 https://kotobank.jp/word/空海 の各辞典が挙げる空海の著作（デジタル大辞泉・精選版日本国語大辞典・
+#              改訂新版世界大百科事典・日本大百科全書。いずれにも無い書名は「著作一覧に無い」と書く）
+#   Web 検索   2026-09-19 に書名を引用符で囲んで検索した結果
+
+titles:
+  - title: いろは歌
+    forms: [いろは歌]
+    category: later
+    sources:
+      - questions.yaml T06（日本大百科全書「弘法大師の作という古来からの説は否定されるべき」、ブリタニカ国際大百科事典「俗に作者を空海とするのは誤り」、山川日本史小辞典）
+
+  - title: 三教指帰
+    forms: [三教指帰]
+    category: kukai_work
+    sources:
+      - questions.yaml F11（延暦 16 年＝797 年、辞典 4 種）
+      - コトバンク「空海」（デジタル大辞泉・精選版日本国語大辞典・日本大百科全書）
+    note: 目録には載っていない（目録の不備。設計書「着手時に判明したこと」2）
+
+  - title: 入真言儀則
+    forms: [入真言儀則]
+    category: not_found
+    sources:
+      - Web 検索で書名としての一致なし
+      - コトバンク「空海」の著作一覧に無い
+
+  - title: 六大縁起章
+    forms: [六大縁起章]
+    category: not_found
+    sources:
+      - questions.yaml T01（Web 検索で書名としての一致なし、2026-09-18）
+
+  - title: 十住心論
+    forms: [十住心論]
+    category: kukai_work
+    refers_to: 秘密曼荼羅十住心論
+    sources:
+      - 目録（秘密曼荼羅十住心論）
+      - コトバンク「空海」（デジタル大辞泉・精選版日本国語大辞典ほか「十住心論」）
+
+  - title: 十住心論略本
+    forms: [十住心論 略本]
+    category: misnamed
+    refers_to: 秘密曼荼羅十住心論
+    sources:
+      - 目録（正式名は秘密曼荼羅十住心論。その要約は秘蔵宝鑰）
+    note: 回答は『十住心論』の正式名称を「十住心論 略本」とした。この名の書は見当たらない
+
+  - title: 即身成仏義
+    forms: [即身成仏義]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 即身成仏論
+    forms: [即身成仏論]
+    category: misnamed
+    refers_to: 即身成仏義
+    sources:
+      - Web 検索で書名としての一致なし（結果は『即身成仏義』のみ）
+      - 目録（即身成仏義）
+    note: 回答は「生まれ生まれ…」の句がこの書にあるとした
+
+  - title: 即身成佛義
+    forms: [即身成佛義]
+    category: kukai_work
+    refers_to: 即身成仏義
+    sources:
+      - 目録（字体差）
+
+  - title: 吽字義
+    forms: [吽字義]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 声字実相義
+    forms: [声字実相義]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 声字実相論
+    forms: [声字実相論]
+    category: misnamed
+    refers_to: 声字実相義
+    sources:
+      - Web 検索で書名としての一致なし（結果は『声字実相義』のみ）
+      - 目録（声字実相義）
+
+  - title: 大日経疏
+    forms: [大日経疏]
+    category: other_author
+    author: 善無畏（講説）・一行（筆録）
+    sources:
+      - コトバンク「大日経疏」（デジタル大辞泉「唐の善無畏講説、一行が筆録」、精選版日本国語大辞典「善無畏説、一行記」、日本大百科全書）
+
+  - title: 密教具足之儀
+    forms: [密教具足之儀]
+    category: not_found
+    sources:
+      - Web 検索で書名としての一致なし
+      - コトバンク「空海」の著作一覧に無い
+    note: 回答は、この書を朝廷に上奏したとした
+
+  - title: 弁顕密二教論
+    forms: [弁顕密二教論]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 当字解
+    forms: [当字解]
+    category: not_found
+    sources:
+      - Web 検索で書名としての一致なし
+      - コトバンク「空海」の著作一覧に無い
+
+  - title: 後序
+    forms: [後序]
+    category: not_title
+    note: 回答は『性霊集』の巻末の「後序」として挙げた。書物の一部の呼び名で書名ではない。補助抜き出しで Claude のみ自分の作とし、Astra は書名でないとした
+
+  - title: 御詠歌
+    forms: [御詠歌]
+    category: later
+    sources:
+      - コトバンク「御詠歌」（精選版日本国語大辞典「その発生は、室町以後と推定され」、日本大百科全書「御詠歌の作者は、ほとんど無名の人と考えて大過ない」）
+
+  - title: 御請来目録
+    forms: [御請来目録]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 御遺告
+    forms: [御遺告]
+    category: later
+    sources:
+      - 目録（後世にわたしの名で伝えられた文書。10 世紀、没後に真言宗内で編纂）
+
+  - title: 性霊集
+    forms: [性霊集]
+    category: kukai_work
+    sources:
+      - questions.yaml F12（弟子の真済が集成、辞典 2 種）
+      - コトバンク「空海」（デジタル大辞泉・精選版日本国語大辞典・日本大百科全書）
+    note: 空海の詩文を弟子が編んだもの。巻八〜十は散逸し 1079 年に済暹が補った
+
+  - title: 文鏡秘府論
+    forms: [文鏡秘府論]
+    category: kukai_work
+    sources:
+      - コトバンク「文鏡秘府論」（デジタル大辞泉「弘仁 10～11 年（819～820）ごろの成立」ほか 5 種が空海の編著とする）
+
+  - title: 東征記
+    forms: [東征記]
+    category: not_found
+    sources:
+      - コトバンク「空海」の著作一覧に無い
+      - コトバンク「唐大和上東征伝」（似た名の『東征伝』は淡海三船の撰で鑑真の伝記。改訂新版世界大百科事典が別称に《東征伝》を挙げる）
+    note: 回答は、唐に滞在したときの自分の紀行文とした
+
+  - title: 梵字論
+    forms: [梵字論]
+    category: not_found
+    sources:
+      - Web 検索で書名としての一致なし（空海の悉曇の書は『梵字悉曇字母并釈義』。VIVEKA「空海『梵字悉曇字母釈義』解題」）
+      - コトバンク「空海」の著作一覧に無い
+
+  - title: 灌頂歴源別章
+    forms: [灌頂歴源別章]
+    category: not_found
+    sources:
+      - Web 検索で書名としての一致なし（似た名の『灌頂歴名』は空海自筆の受法者の名簿で、国宝・神護寺蔵。論書ではない）
+      - コトバンク「空海」の著作一覧に無い
+    note: 回答は密教論の書とした
+
+  - title: 秘密曼荼羅十住心論
+    forms: [秘密曼荼羅十住心論]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 秘蔵宝鑰
+    forms: [秘蔵宝鑰]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 空海全集
+    forms: [空海全集]
+    category: later
+    sources:
+      - 筑摩書房『弘法大師空海全集』全 8 巻（1983〜1986 年、現代語訳。筑摩書房の商品ページ、CiNii 図書 BN00130191）
+    note: 回答は自分の主要な著作を収めたものとし、その中に『大日経疏』『金剛峯瑜伽』を挙げた
+
+  - title: 綜芸種智院
+    forms: [綜芸種智院]
+    category: misnamed
+    refers_to: 綜芸種智院式并序
+    sources:
+      - コトバンク「綜芸種智院」（改訂新版世界大百科事典「〈綜芸種智院式幷序〉の書かれた 828 年」。「綜芸種智院」という名の書物の記述は無い）
+    note: 綜芸種智院は空海が開いた学校の名。回答は「その名は私の著書『綜芸種智院』から取られた」とした
+
+  - title: 自序
+    forms: [自序]
+    category: not_title
+    note: 回答は『性霊集』の巻首の「自序」として挙げた。書物の一部の呼び名で書名ではない。補助抜き出しで Claude のみ自分の作とし、Astra は書名でないとした
+
+  - title: 般若心経秘鍵
+    forms: [般若心経秘鍵]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 菩提心発起文
+    forms: [菩提心発起文]
+    category: not_found
+    sources:
+      - Web 検索で書名としての一致なし
+      - コトバンク「空海」の著作一覧に無い
+    note: 回答は 778 年、21 歳のときの書とした（空海は 774 年生まれ）
+
+  - title: 菩提心論
+    forms: [菩提心論]
+    category: other_author
+    author: 龍樹の著と伝え、不空の訳とされる
+    sources:
+      - コトバンク「菩提心論」（ブリタニカ国際大百科事典「インドの龍樹の著として伝えられる書」「不空の訳とされているが疑問がある」）
+
+  - title: 遍照密意鈔
+    forms: [遍照密意鈔]
+    category: not_found
+    sources:
+      - questions.yaml T02（Web 検索で書名としての一致なし、2026-09-18）
+
+  - title: 金剛峯瑜伽
+    forms: [金剛峯瑜伽]
+    category: not_found
+    sources:
+      - コトバンク「空海」の著作一覧に無い
+      - 似た名の『金剛峯楼閣一切瑜伽瑜祇経』は金剛智訳の経典（奈良国立博物館、文化遺産オンライン）
+    note: 回答は自分の主要な著作とした
+
+  - title: 金剛頂経疏
+    forms: [金剛頂経疏]
+    category: other_author
+    author: 円仁
+    sources:
+      - 国立国会図書館典拠 01141738「金剛頂大教王経疏」（円仁 794-864。別名「金剛頂経疏」）
+
+  - title: 顕戒論
+    forms: [顕戒論]
+    category: other_author
+    author: 最澄
+    sources:
+      - questions.yaml T03（デジタル大辞泉「最澄著。弘仁 11 年（820）成立」ほか辞典 3 種）
