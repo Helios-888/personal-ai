@@ -20,6 +20,10 @@ class RecordingClient:
     def __init__(self, existing=None):
         self.existing = existing
         self.calls = []
+        self.refreshed = 0  # モデル一覧の写しを作り直した回数
+
+    def refresh_models(self):
+        self.refreshed += 1
 
     def get_model(self, model_id):
         return self.existing
@@ -263,3 +267,23 @@ def test_run_refuses_a_knowledge_that_is_not_built_yet(tmp_path, capsys):
     assert rc == 2
     assert "build_knowledge.py" in capsys.readouterr().err
     assert client.calls == []
+
+
+
+def test_run_rebuilds_the_model_cache_after_syncing(tmp_path, capsys):
+    # 写しを作り直さないと、API から問うたときに古い Knowledge の設定のまま答える（2026-09-19 の先行確認で起きた）
+    client = RecordingClient(existing=None)
+
+    rc, _ = run_cli([], tmp_path, client=client)
+
+    assert rc == 0
+    assert client.refreshed == 1
+    assert "refreshed" in capsys.readouterr().out
+
+
+def test_dry_run_does_not_touch_the_model_cache(tmp_path):
+    client = RecordingClient(existing=None)
+
+    run_cli(["--dry-run"], tmp_path, client=client)
+
+    assert client.refreshed == 0

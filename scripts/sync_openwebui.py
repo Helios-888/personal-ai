@@ -91,6 +91,8 @@ def run(
         print("done: no change")
     else:
         print(f"done: {plan.action}d {result.get('id', agent['id'])}")
+    client.refresh_models()  # Knowledge の紐付けは写しから読まれるので、作り直すまで効かない（openwebui_client の注記）
+    print("refreshed: Open WebUI のモデル一覧の写しを作り直した")
     return 0
 
 

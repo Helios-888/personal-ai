@@ -195,3 +195,20 @@ def test_the_expected_version_is_the_one_whose_source_was_read():
     from scripts.lib.openwebui_client import EXPECTED_VERSION
 
     assert EXPECTED_VERSION == "0.11.3"
+
+
+def test_refresh_models_rebuilds_the_model_cache_without_returning_the_list():
+    # Open WebUI は問いを受けたとき、モデルの Knowledge を手元の写し（app.state.MODELS）から読む。写しは GET /api/models で作り直される。
+    # 一覧にはこのプロジェクト以外のモデルも載るので、中身は返さない
+    client, session = make_client(FakeResponse(200, {"data": [{"id": "other-model"}]}))
+
+    assert client.refresh_models() is None
+    assert session.calls[0][:2] == ("GET", "http://owui:3000/api/models")
+
+
+def test_refresh_models_raises_on_failure_without_echoing_the_body():
+    client, _ = make_client(FakeResponse(500, {"data": [{"id": "other-model"}]}))
+
+    with pytest.raises(OpenWebUIError) as excinfo:
+        client.refresh_models()
+    assert "other-model" not in str(excinfo.value)

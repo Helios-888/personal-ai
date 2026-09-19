@@ -228,6 +228,8 @@ def prepare(
     registered = read_registered(root, args.agent) if args.condition == "K1" else ()
     knowledge_refs = model_refs(parse_specs(agent.get("knowledge")), registered) if args.condition == "K1" else []
     target, client = choose_target(args.condition, args.route, agent, system_prompt, env, client_factory, knowledge_refs)
+    if args.condition == "K1":
+        client.refresh_models()  # Knowledge の紐付けはモデル一覧の写しから読まれる。写しをデータベースに揃えてから問う
     recheck = (lambda: check_retrieval(client, root, agent, registered)) if args.condition == "K1" else None
     knowledge, rag = recheck() if recheck else ((), None)
     return EvalSetup(

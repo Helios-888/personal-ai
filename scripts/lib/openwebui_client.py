@@ -9,6 +9,9 @@
 - POST /api/v1/files/?process=true&process_in_background=false … 埋め込みまで終えてから返る。meta.file_hash は送ったバイト列の SHA-256
 - POST /api/v1/knowledge/{id}/file/add … 処理済みのファイルを束に入れ、束の側でも埋め込む
 - GET  /api/v1/knowledge/{id}/files   … 管理者は limit で 1 ページの件数を広げられる（既定 30）
+- 問いを受けたとき、モデルの meta.knowledge は手元の写し（app.state.MODELS）から読まれ、設定（params）はデータベースから
+  読まれる（main.py chat_completion）。写しは GET /api/models で作り直される。同期しただけでは Knowledge の紐付けが効かない
+  （2026-09-19 の先行確認で、紐付け後も検索されなかった）
 """
 import re
 from typing import Optional
@@ -88,6 +91,14 @@ class OpenWebUIClient:
 
     def get_version(self) -> dict:
         return self._get("/api/version")
+
+    def refresh_models(self) -> None:
+        """モデル一覧の写しを作り直させる。一覧にはこのプロジェクト以外のモデルも載るので、中身は読まずに捨てる。"""
+        response = self._session.get(f"{self._base}/api/models", headers=self._headers, timeout=self._timeout)
+        if response.status_code in (401, 403):
+            raise OpenWebUIAuthError(f"authentication failed (HTTP {response.status_code})")
+        if response.status_code >= 400:
+            raise OpenWebUIError(f"HTTP {response.status_code}: モデル一覧の写しを作り直せませんでした")
 
     def _get(self, path: str, params: Optional[dict] = None) -> dict:
         response = self._session.get(f"{self._base}{path}", headers=self._headers, params=params, timeout=self._timeout)

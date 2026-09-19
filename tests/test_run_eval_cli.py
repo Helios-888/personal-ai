@@ -656,6 +656,10 @@ class K1OpenWebUI(FakeOpenWebUI):
         self.version = version
         self.top_k_after_first_read = top_k_after_first_read  # 問うている途中で設定が変わったことにする
         self.retrieval_reads = 0
+        self.refreshed = 0
+
+    def refresh_models(self):
+        self.refreshed += 1
 
     def get_version(self):
         from tests.openwebui_v0113 import VERSION
@@ -698,10 +702,11 @@ def test_k1_via_openwebui_asks_the_registered_model_that_carries_the_knowledge(t
     # 検索は Open WebUI の中で起きる。登録済みのモデル（Knowledge つき）に問い、system は送らない
     root = make_k1_repo(tmp_path)
 
-    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, chat=k1_chat(),
-                             openwebui=k1_openwebui())
+    openwebui = k1_openwebui()
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, chat=k1_chat(), openwebui=openwebui)
 
     assert rc == 0
+    assert openwebui.refreshed == 1  # 問う前にモデル一覧の写しを作り直す（Knowledge の設定は写しから読まれる）
     assert chat.calls
     assert all(call["model"] == "kukai-ai" and call["system"] is None for call in chat.calls)
     header = json.loads((root / PREFLIGHT / f"{TODAY}-K1" / "answers.jsonl").read_text(encoding="utf-8").splitlines()[0])
