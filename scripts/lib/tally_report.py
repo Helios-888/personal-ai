@@ -7,9 +7,12 @@
 from scripts.lib.tally import (
     CEILING,
     CONTENT_QUESTIONS,
+    GATE,
+    GATE_OPS,
     QUESTION_MARGIN,
     QUESTION_METRICS,
     RATE_CONCLUSIONS,
+    REFERENCE_SUFFIX,
     GraderTally,
     ceiling_reached,
     gate,
@@ -23,6 +26,7 @@ METRIC_NAMES = {  # 経典の内容を問う 10 問を先に（Phase 4 設計書
     "content_correct_answers": "内容 10 問 正答（回答単位）",
     "content_over_refusal": "内容 10 問 過剰拒否（回答単位）",
     "content_unfaithful": "内容 10 問 付け足し・書き換えあり（回答単位）",
+    "content_unfaithful_reference": "内容 10 問 付け足し・書き換えあり（参考、語の説明を除く）",
     "factual_correct": "factual 正答（多数決）",
     "factual_correct_answers": "factual 正答（回答単位）",
     "trap_refused": "trap 正しく退けた（多数決）",
@@ -33,6 +37,7 @@ METRIC_NAMES = {  # 経典の内容を問う 10 問を先に（Phase 4 設計書
     "fictitious_strict": "架空引用（厳しい数え方）",
     "fictitious_lenient": "架空引用（緩い数え方、参考）",
     "unfaithful_answers": "付け足し・書き換えあり（回答単位、全問）",
+    "unfaithful_answers_reference": "付け足し・書き換えあり（参考、語の説明を除く、全問）",
 }
 CATEGORY_NAMES = {
     "misnamed": "書名の取り違え",
@@ -164,7 +169,21 @@ def _gate(t: GraderTally) -> list[str]:
             f"Phase 4 設計書「正確さの関門」。正式な値（{t.name}）で判定する。伝記の 5 問は関門に使わない。"
             "内容 10 問の正答と付け足し・書き換えは必ず並べて見る。内容 10 問の 2 つの数値は、K1 の本番の前ではなく"
             "集計の前に利用者が確定させた（設計書「確定の経緯」）。", "",
-            *_table(["関門", "基準", *t.conditions], rows)]
+            *_table(["関門", "基準", *t.conditions], rows), *_gate_reference(t)]
+
+
+def _gate_reference(t: GraderTally) -> list[str]:
+    """参考の読み（除いた回答を付け足し無しとする）でも関門の可否が変わらないかを 1 行で示す。"""
+    metric = f"content_unfaithful{REFERENCE_SUFFIX}"
+    if metric not in t.metrics[t.conditions[0]]:
+        return []
+    op, value = next((o, v) for name, o, v in GATE if name == "content_unfaithful")
+    verdicts = []
+    for condition in t.conditions:
+        count = t.metrics[condition][metric]
+        verdicts.append(f"{condition} {count.text()} {'満たす' if GATE_OPS[op](count.n, value) else '満たさない'}")
+    return ["", f"参考（「語の説明」に当たる {len(t.faithful_excluded)} 回答を除く読み）では、"
+                f"{METRIC_NAMES['content_unfaithful']} は {'、'.join(verdicts)}。"]
 
 
 def _agreement(tallies: list[GraderTally]) -> list[str]:
@@ -232,11 +251,26 @@ def _faithfulness(t: GraderTally) -> list[str]:
             for a in flagged]
     counts = [f"- {c}：{t.metrics[c]['unfaithful_answers'].text()}（経典の内容を問う 10 問では "
               f"{t.metrics[c]['content_unfaithful'].text()}）" for c in t.conditions]
+    counts += _faithfulness_reference(t)
     body = _table(["回答", "条件", "回", "answers.jsonl の行", "付け足し", "書き換え"], rows) if rows else ["（なし）"]
     return ["", "## 付け足し・書き換え（faithfulness.yaml）", "",
             "判定の定義は `evaluations/kukai/faithfulness.yaml`（K1 を取る前に凍結）。検索された箇所の有無で条件が分かるので、"
             "この判定は盲検でない（rubric の区分を封印した後に、別の回で行った）。回答単位で、付け足しか書き換えが 1 つでもあれば数える。",
             "", *counts, "", *body]
+
+
+def _faithfulness_reference(t: GraderTally) -> list[str]:
+    """判定役のあいだで「語の説明」の読みが揃わなかった回答を、付け足し無しとして数え直した参考値。"""
+    if not t.faithful_excluded:
+        return []
+    per_condition = "、".join(
+        f"{c} {t.metrics[c]['unfaithful_answers' + REFERENCE_SUFFIX].text()}"
+        f"（内容 10 問では {t.metrics[c]['content_unfaithful' + REFERENCE_SUFFIX].text()}）"
+        for c in t.conditions)
+    return [f"- 参考：{'・'.join(t.faithful_excluded)} を付け足し無しとして数え直すと {per_condition}。"
+            "この {n} 回答は「語の説明」の読みが判定役のあいだで揃わなかったもので、"
+            "正式な値は判定どおり（上の行）とする（設計書「付け足し・書き換えの数え方」）。".replace(
+                "{n}", str(len(t.faithful_excluded)))]
 
 
 def _appendix(tallies: list[GraderTally]) -> list[str]:

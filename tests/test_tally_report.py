@@ -137,3 +137,31 @@ def test_gate_section_shows_each_rule_for_each_condition():
 def test_no_gate_or_faithfulness_section_without_the_judgment():
     report = render_p4(generic.run())
     assert "## 正確さの関門" not in report and "## 付け足し・書き換え" not in report
+
+
+def excluded_tally():
+    return generic.run(faithful=generic.faithful(F01_a=(("地・水・火・風",), ()), F01_b=(("鋳造",), ())),
+                       faithful_excluded=frozenset({"F01-a"}))
+
+
+def test_the_reference_count_sits_beside_the_official_one_in_the_metrics():
+    report = render_p4(excluded_tally())
+    assert "| 内容 10 問 付け足し・書き換えあり（回答単位） | 1/3 | 1/3 |" in report
+    assert "| 内容 10 問 付け足し・書き換えあり（参考、語の説明を除く） | 0/3 | 1/3 |" in report
+    assert "| 付け足し・書き換えあり（参考、語の説明を除く、全問） | 0/15 | 1/15 |" in report
+
+
+def test_the_faithfulness_section_names_the_excluded_answers():
+    section = render_p4(excluded_tally()).split("## 付け足し・書き換え")[1].split("\n## ")[0]
+    assert "F01-a" in section.split("参考")[1]
+
+
+def test_the_gate_says_whether_the_reference_reading_changes_it():
+    section = render_p4(excluded_tally()).split("## 正確さの関門")[1].split("\n## ")[0]
+    assert "参考（「語の説明」に当たる 1 回答を除く読み）" in section
+    assert "B1 0/3 満たす" in section and "K1 1/3 満たさない" in section
+
+
+def test_no_reference_rows_without_an_exclusion():
+    report = render_p4(generic.run(faithful=generic.faithful()))
+    assert "参考、語の説明を除く" not in report and "を除く読み" not in report

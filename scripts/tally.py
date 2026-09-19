@@ -58,6 +58,7 @@ KEY_FILE = "key.jsonl"
 ANSWERS_FILE = "answers.jsonl"
 SUPPLEMENT_ITEMS = "titles/items.jsonl"  # Phase 3 だけ：「」の書名を補助抜き出しで拾い直した
 FAITHFULNESS_FILE = "faithfulness.jsonl"
+EXCLUDED_FILE = "faithfulness/excluded.yaml"  # 参考値のために付け足し無しとして数え直す回答。無ければ参考値を出さない
 GRADERS = (  # （名前, 区分のファイル, 組にする補助抜き出しの判定）。1 人目が正式な値
     ("Opus 5", "scores.jsonl", "titles/result-claude.txt"),
     ("GPT-6 Astra", "astra/result-*.txt", "titles/result-astra.txt"),
@@ -81,6 +82,7 @@ NO_FAITHFULNESS_NOTES = {
     True: "付け足し・書き換えの判定：無し（Phase 3 には判定が無い）",
     False: "付け足し・書き換えの判定：無し（--no-faithfulness で集計した。正確さの関門は判定していない）",
 }
+EXCLUDED_NOTE = "参考値のために除いた回答：`{path}`（{reason}）。正式な値は判定どおり"
 SCOPES = {"all": None, "trap": frozenset({"trap"})}  # 2 人目の採点範囲。Phase 3 は全束、Phase 4 は trap の束だけ（設計書「採点」）
 BASELINE_DIR = "baseline"  # 基準値の記録の置き場。1 つ目の条件はここから取る
 
@@ -142,6 +144,7 @@ def build(args: argparse.Namespace, root: Path, runner: Callable) -> int:
                if supplement else primary_titles)
               for name, pattern, result in GRADERS]
     faithful = read_faithful(scoring, inputs, optional=supplement or args.no_faithfulness)
+    excluded, excluded_note = read_excluded(scoring, inputs, faithful)
     if faithful is not None:
         check_content_questions(kinds)
     declared = SCOPES[args.second_scope or ("all" if supplement else "trap")]
@@ -155,12 +158,14 @@ def build(args: argparse.Namespace, root: Path, runner: Callable) -> int:
     tallies = [
         tally(name, entries, labels, kinds, own, categories, conditions,
               scope=None if i == 0 else checked_scope(name, declared, labels, entries, kinds),  # 一次採点はいつも全問
-              faithful=faithful if i == 0 else None)
+              faithful=faithful if i == 0 else None,
+              faithful_excluded=excluded if i == 0 else frozenset())
         for i, (name, labels, own) in enumerate(graded)
     ]
 
     notes = [*(NOTES_SUPPLEMENT if supplement else NOTES),
-             FAITHFULNESS_NOTE if faithful is not None else NO_FAITHFULNESS_NOTES[supplement]]
+             FAITHFULNESS_NOTE if faithful is not None else NO_FAITHFULNESS_NOTES[supplement],
+             *excluded_note]
     report = render_report(header, tallies, notes, sorted(inputs.read.items()), commit)  # 組み上げてから書く
     with open(out, "x", encoding="utf-8", newline="\n") as file:  # 同名があれば失敗する（上書きしない）
         file.write(report)
@@ -191,6 +196,24 @@ def read_faithful(scoring: Path, inputs: Inputs, optional: bool) -> Optional[dic
         return None
     raise ValueError(f"{display(path, inputs.root)} がありません（正確さの関門に要る。"
                      "検索箇所を記録できず判定できなかったときだけ --no-faithfulness で集計する）")
+
+
+def read_excluded(scoring: Path, inputs: Inputs, faithful: Optional[dict]) -> tuple[frozenset, list[str]]:
+    """参考値のために付け足し無しとして数え直す回答と、報告に載せる注記。ファイルが無ければ空。"""
+    path = scoring / EXCLUDED_FILE
+    where = display(path, inputs.root)
+    if not path.exists():
+        return frozenset(), []
+    if faithful is None:
+        raise ValueError(f"{where} があるのに付け足し・書き換えの判定がありません（--no-faithfulness とは併せられません）")
+    data = yaml.safe_load(inputs.text(path)) or {}
+    reason = data.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError(f"{where} に reason（除く理由）がありません")
+    answers = data.get("answers")
+    if not isinstance(answers, list) or not answers or not all(isinstance(a, str) and a.strip() for a in answers):
+        raise ValueError(f"{where} の answers は回答の呼び名の一覧（1 件以上）である必要があります")
+    return frozenset(answers), [EXCLUDED_NOTE.format(path=where, reason=reason.strip())]
 
 
 def check_content_questions(kinds: dict[str, str]) -> None:

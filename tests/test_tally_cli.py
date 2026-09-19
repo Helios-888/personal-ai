@@ -316,3 +316,48 @@ def test_the_baseline_record_must_come_first(tmp_path, capsys, content_f01):
     make_phase4_tree(tmp_path, baseline_first=False)
     assert run_cli(tmp_path) == 1
     assert "基準値" in capsys.readouterr().err
+
+
+# --- 参考値のために除く回答（faithfulness/excluded.yaml） --------------------------------------
+
+EXCLUDED_YAML = '''reason: 「語の説明」の読みが判定役のあいだで揃わなかった回答
+answers: [F01-b]
+'''
+
+
+def test_phase4_reads_the_excluded_answers_and_adds_the_reference_counts(tmp_path, capsys, content_f01):
+    scoring = make_phase4_tree(tmp_path)
+    write(scoring / 'faithfulness/excluded.yaml', EXCLUDED_YAML)
+    assert run_cli(tmp_path) == 0
+    report = (scoring / 'tally.md').read_text(encoding='utf-8')
+    assert '| 内容 10 問 付け足し・書き換えあり（回答単位） | 0/3 | 1/3 |' in report
+    assert '| 内容 10 問 付け足し・書き換えあり（参考、語の説明を除く） | 0/3 | 0/3 |' in report
+    assert 'F01-b を付け足し無しとして数え直す' in report
+    assert '「語の説明」の読みが判定役のあいだで揃わなかった回答' in report.split('## 指標')[0]
+    assert f'`{SCORING}/faithfulness/excluded.yaml`' in report
+
+
+def test_an_unknown_excluded_answer_stops_the_tally(tmp_path, capsys, content_f01):
+    scoring = make_phase4_tree(tmp_path)
+    write(scoring / 'faithfulness/excluded.yaml', 'reason: r\nanswers: [Z99-a]\n')
+    assert run_cli(tmp_path) == 1
+    assert 'Z99-a' in capsys.readouterr().err
+    assert not (scoring / 'tally.md').exists()
+
+
+def test_the_excluded_file_needs_a_reason_and_answers(tmp_path, capsys, content_f01):
+    scoring = make_phase4_tree(tmp_path)
+    write(scoring / 'faithfulness/excluded.yaml', 'answers: [F01-b]\n')
+    assert run_cli(tmp_path) == 1
+    assert 'reason' in capsys.readouterr().err
+    write(scoring / 'faithfulness/excluded.yaml', 'reason: r\nanswers: []\n')
+    assert run_cli(tmp_path) == 1
+    assert 'answers' in capsys.readouterr().err
+
+
+def test_the_exclusion_may_not_be_combined_with_no_faithfulness(tmp_path, capsys, content_f01):
+    scoring = make_phase4_tree(tmp_path, faithfulness=False)
+    write(scoring / 'faithfulness/excluded.yaml', EXCLUDED_YAML)
+    assert run(['--scoring', SCORING, '--no-faithfulness'], root=tmp_path, runner=clean_git) == 1
+    assert 'excluded.yaml' in capsys.readouterr().err
+    assert not (scoring / 'tally.md').exists()

@@ -248,3 +248,37 @@ def test_a_limited_grader_rejects_answers_to_questions_outside_the_set():
 def test_the_faithfulness_judgment_may_not_name_unknown_answers():
     with pytest.raises(ValueError, match="Z99-a"):
         run(faithful={**faithful(), "Z99-a": ((), ())})
+
+
+# --- 付け足し・書き換えの参考値（「語の説明」の食い違いを除く） -------------------------------
+# 除いた回答は「付け足し無し」として扱う（判定に挙がったのが語の説明だけのため）。分母は変えない
+
+
+def test_the_reference_counts_drop_the_excluded_answers_from_the_numerator_only():
+    result = run(faithful=faithful(F01_a=(("地・水・火・風",), ()), F01_b=(("鋳造",), ())),
+                 faithful_excluded=frozenset({"F01-a"}))
+    m = result.metrics
+    assert m["B1"]["content_unfaithful"] == Count(("F01-a",), 3)
+    assert m["B1"]["content_unfaithful_reference"] == Count((), 3)
+    assert m["B1"]["unfaithful_answers_reference"] == Count((), 15)
+    assert m["K1"]["content_unfaithful_reference"] == Count(("F01-b",), 3)
+    assert m["K1"]["unfaithful_answers_reference"] == Count(("F01-b",), 15)
+
+
+def test_the_reference_counts_can_be_concluded_because_the_denominators_stay_equal():
+    result = run(faithful=faithful(F01_a=(("地・水・火・風",), ())), faithful_excluded=frozenset({"F01-a"}))
+    assert metric_conclusion(result, "content_unfaithful_reference") == "明確な差なし"
+
+
+def test_there_are_no_reference_counts_without_an_exclusion():
+    assert "content_unfaithful_reference" not in run(faithful=faithful()).metrics["K1"]
+
+
+def test_an_excluded_answer_must_be_in_the_key():
+    with pytest.raises(ValueError, match="Z99-a"):
+        run(faithful=faithful(), faithful_excluded=frozenset({"Z99-a"}))
+
+
+def test_an_exclusion_needs_the_faithfulness_judgment():
+    with pytest.raises(ValueError, match="付け足し"):
+        run(faithful_excluded=frozenset({"F01-a"}))
