@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会話まとめ 2026-09-19-03 — Phase 4：物差しを「内容どおり」に改め、上限の試験 9/9、9 冊の取り込みまで</title>
+<style>
+  body { font-family: "Segoe UI", "Yu Gothic UI", sans-serif; margin: 24px; color: #222; background: #fafafa; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-left: 6px solid #3b82f6; padding-left: 10px; background: #eef3fb; padding: 6px 10px; }
+  h3 { margin-top: 20px; color: #1e3a8a; border-bottom: 1px dashed #93c5fd; padding-bottom: 3px; }
+  h4 { margin-top: 14px; color: #1e40af; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #e5e7eb; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+  .ok   { background: #d1fae5 !important; }
+  .warn { background: #fef3c7 !important; }
+  .ng   { background: #fee2e2 !important; }
+  .info { background: #dbeafe !important; }
+  .muted { color: #666; }
+  .pos { color: #059669; font-weight: bold; }
+  .neg { color: #dc2626; font-weight: bold; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: "Consolas", "Courier New", monospace; }
+  pre  { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.45; }
+  ul, ol { line-height: 1.8; }
+
+  /* 会話まとめ固有 */
+  .headline-card { background: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 12px 0 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .headline-card .label { font-size: 12px; color: #1e40af; letter-spacing: 0.05em; }
+  .headline-card .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+  .conclusion { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+
+  /* 会話ログ */
+  .dialog { margin: 14px 0; }
+  .dialog-block { margin: 10px 0; padding: 10px 14px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; }
+  .dialog-block.master { border-left: 5px solid #2563eb; background: #eff6ff; }
+  .dialog-block.ai { border-left: 5px solid #6b7280; background: #f9fafb; }
+  .dialog-num { display: inline-block; min-width: 36px; font-family: "Consolas", monospace; font-size: 11px; color: #6b7280; margin-right: 6px; }
+  .speaker-master { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .speaker-ai     { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .dialog-body { margin-top: 6px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; }
+  .elide { display: inline-block; padding: 1px 8px; margin: 2px 0; background: #f3f4f6; color: #6b7280; font-style: italic; font-size: 12px; border-radius: 3px; border: 1px dashed #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>会話まとめ 2026-09-19-03</h1>
+<div class="headline-card">
+  <div class="label">HEADLINE</div>
+  <div class="value">Phase 4：物差しを「内容どおり」に改め、上限の試験 9/9、9 冊の取り込みまで</div>
+</div>
+<p class="meta">実施日: 2026-09-19 / セッション ID: session_01AJsyeA2XDkXLBzAH6KJHiU / ブランチ: main（llm01 <code>/home/aiadmin/personal-ai</code>）/ コミット: d4a48a1・c7af748・8624124・67d0f35・98ffcc2（すべて push 済）</p>
+
+<h2>セッション概要</h2>
+<p><b>起点</b>：前回の会話で Phase 4 設計書の下書き（7dd3bbd）を push し、旦那様の確認待ち。Phase 3 の基準値では、経典の中身を問う 10 問の正答が 1 問、事実に反して「ない」と言い切る回答が 45 中 20。</p>
+<p><b>進行段取り</b></p>
+<ol>
+  <li>再開時の点検で設計書の穴を 2 つ発見（『御遺告』に伏せる問い H02 の答え、目印の文字列照合が漢文に効かない）→ 書き足して push</li>
+  <li>段 1（目録と原則の修正）と 5 問の確かめ。空海AIが目録に無い元号などを足す癖を発見。規則の強化・温度 0.2 では直らなかった</li>
+  <li>旦那様の方針：史実ではなく「内容どおりに答えるか」が物差し。答えの逐一修正は RAG ではない。切りのない細部は打ち止め</li>
+  <li>上限の試験（正解の本文を手で渡す）が 9/9 で合格し、方向を確認</li>
+  <li>採点の準備（手順 2）と code-reviewer の指摘の反映。稼働中の空海AIへ同期</li>
+  <li>9 冊の取り込み（後世の別本の除外・伏せる箇所の削除・見張りのテスト）、検索された箇所の記録、埋め込みモデル比較の着手 → 会話を区切る</li>
+</ol>
+
+<h2>各段階のサマリ</h2>
+
+<h3>段階 1: 再開時の点検と設計書の手直し</h3>
+<ul>
+  <li>『御遺告』T2431_.77.0409b21–b29 に H02 の答えそのもの（弘仁七年の上表で紀伊の南山を請い、高雄を去って移り、のち高雄に戻り春秋に山へ通う）があった。設計書の「性霊集を入れないので漏れない」は誤り</li>
+  <li>目印（高野山・修禅の道場）の文字列照合は漢文・旧字体に効かず、奥書・刊記で誤検出する。→ 検索語の出現を「削る／理由つきで残す」に 1 件ずつ登録させる 2 段の見張りに変更</li>
+  <li><code>run_eval.py</code> の見張りが <code>runs/</code> に掛からない点も記載。d4a48a1 で push</li>
+</ul>
+
+<h3>段階 2: 段 1（目録と原則の修正）と確かめ</h3>
+<ul>
+  <li>目録に本文を入れない自著 6 点（三教指帰・性霊集・広付法伝・文鏡秘府論・文筆眼心抄・篆隷万象名義）を出典つきで追加（出典は <code>index-sources.md</code>）。原則第 1 項を「経は、求めがあれば貸す。されど…」に修正</li>
+  <li>llama-swap 直で 5 問 × 3 回。自著を認め架空の書を退けるのは 12/12。F13 の 1 回答が「お願いを受けたことはなく」と断定</li>
+  <li>F11 は 6/6 が目録に無い元号を足した（5 つ誤り）。規則 1 の強化でも、温度 0.2 でも止まらず、797 年を 777 年に書き換えた回答も出た → 規則は元に戻した</li>
+</ul>
+
+<h3>段階 3: 旦那様の方針と上限の試験</h3>
+<ul>
+  <li>方針：物差しは「与えた内容のとおりに答えるか」。伝記 5 問（F05・F11〜F14）は直さず合否に使わない。答えは直さず仕組み（資料・探し方・指示とモデル）だけ直す。設定の手直しは打ち止め。Phase 5 は最大 2 回</li>
+  <li>上限の試験：F02・F07・F09（Phase 3 で誰も答えられなかった問い）に SAT の正解箇所を、この環境の実際の RAG テンプレートで渡して 3 回ずつ。<b>9/9 が本文どおり、付け足し・書き換え 0</b></li>
+  <li>Open WebUI の RAG テンプレートは既定のままで、「資料に答えが無くても自分の理解で答えよ」の一文がある（今回は影響なし）</li>
+</ul>
+
+<h3>段階 4: 採点の準備（手順 2）と同期</h3>
+<ul>
+  <li><code>run_eval.py</code> に K1（Knowledge あり、Open WebUI 経由のみ）と <code>runs/</code> の見張り。<code>blind_pack.py</code> を <code>--run 条件=記録</code> に。採点票に備考、手引きに「」の書名</li>
+  <li>付け足し・書き換えの判定の定義 <code>faithfulness.yaml</code> を凍結（271b2cad…）。rubric.yaml は改訂の条件が起きていないので変えない</li>
+  <li>code-reviewer の指摘（引用の印「[1]」で条件が分かる、<code>runs/</code> の下のフォルダで見張りが効かない、K1 の記録に検索箇所が無い、ほか）をテストつきで反映</li>
+  <li>旦那様の「明らかに修正した方がいいなら修正しろ」で、稼働中の <code>kukai-ai</code> へ同期（2,297 トークン、同期後 noop）</li>
+</ul>
+
+<h3>段階 5: 9 冊の取り込みと検索の準備</h3>
+<ul>
+  <li><code>scripts/fetch_sat.py</code> で SAT から 9 点を取得（長い著作は続きのリンクをたどる）。『即身成仏義』T2428 は空海の本文 0381b16–0384a19 だけにした（0384a22 以降は後世の異本 6 篇）</li>
+  <li><code>knowledge-exclusions.yaml</code>：『御遺告』0409b21–0409c08 を〔略〕に置換。他 7 か所は理由つきで残す。削る前の写しでは見張りが 9 件の問題を出すことを確認</li>
+  <li>評価 10 問が出典に挙げる 12 行はすべて取り込んだ本文にある</li>
+  <li>Open WebUI は非ストリーミング応答に <code>sources</code>（渡した箇所）を返す → 回答ごとに記録する仕組みを追加</li>
+  <li>今の埋め込みモデルは英語用 <code>all-MiniLM-L6-v2</code>。bge-m3 と ruri-v3 を、評価の問いではない練習問題 11 問で比べる計算を開始（会話終了時点で実行中）</li>
+</ul>
+
+<h2>数値検証</h2>
+<table>
+  <tr><th>項目</th><th>結果</th><th>意味</th></tr>
+  <tr class="ok"><td>段 1：自著を認める・架空の書を退ける（F11・F12・T01・T02）</td><td>12/12</td><td>設定の誤りは直った</td></tr>
+  <tr class="ng"><td>段 1：F11 で目録に無い元号を足した回答</td><td>6/6（うち誤り 5）</td><td>内容が薄いと自分の知識で埋める</td></tr>
+  <tr class="ng"><td>規則 1 強化後の F11（温度 0.7 / 0.2）</td><td>3/3 / 3/3 が付け足し（0.2 で 797→777 の書き換え 1）</td><td>規則・温度では直らない</td></tr>
+  <tr class="ok"><td>上限の試験（本文を手で渡す、F02・F07・F09 × 3）</td><td>9/9 本文どおり、付け足し 0</td><td>本文があれば内容どおりに答える</td></tr>
+  <tr class="info"><td>常時層</td><td>2,031 → 2,297 トークン</td><td>目録 6 点と原則の修正</td></tr>
+  <tr class="info"><td>取り込んだ本文</td><td>9 点、約 8,800 行（T2428 は 236 行）</td><td>評価 10 問の出典 12 行はすべて含む</td></tr>
+  <tr class="ok"><td>伏せる箇所の見張り（削る前の写し）</td><td>9 件の問題を検出</td><td>見張りが効くことを確認</td></tr>
+  <tr class="info"><td>テスト</td><td>345 → 401 件、すべて通過</td><td>fetch_sat.py 本体はテスト無し（カバレッジ 94%）</td></tr>
+</table>
+
+<h2>最終構成</h2>
+<h3>新規ファイル</h3>
+<ul>
+  <li><code>scripts/fetch_sat.py</code>・<code>scripts/lib/sat.py</code>：SAT の取得と Markdown 化</li>
+  <li><code>scripts/lib/exclusions.py</code>・<code>evaluations/kukai/knowledge-exclusions.yaml</code>：伏せる箇所の見張り</li>
+  <li><code>knowledge/kukai/primary/primary__*.md</code>（8 点）・<code>later-attribution/later-attribution__御遺告.md</code></li>
+  <li><code>knowledge/kukai/index-sources.md</code>：目録に足した 6 点の出典</li>
+  <li><code>evaluations/kukai/faithfulness.yaml</code>（＋<code>.sha256</code>）：付け足し・書き換えの判定の定義（凍結）</li>
+  <li><code>evaluations/kukai/preflight/2026-09-19-*</code>：段 1 の確かめ 4 回分、上限の試験、埋め込みの比較（devset・compare・README）</li>
+  <li><code>tests/test_sat.py</code>・<code>tests/test_exclusions.py</code></li>
+</ul>
+<h3>編集</h3>
+<ul>
+  <li><code>knowledge/kukai/index.md</code>・<code>agents/kukai/principles.md</code>（段 1）</li>
+  <li><code>scripts/run_eval.py</code>・<code>scripts/blind_pack.py</code>・<code>scripts/lib/blinding.py</code>・<code>scripts/lib/llm_client.py</code>・<code>scripts/lib/evaluation.py</code> とそのテスト</li>
+  <li><code>docs/specs/2026-09-19-phase4-design.md</code>（方針節・段 1 の経緯・上限の試験・採点・「着手時に判明したこと」1〜10）、<code>evaluations/kukai/README.md</code>、<code>.gitattributes</code>、<code>.gitignore</code></li>
+</ul>
+<h3>検証</h3>
+<ul>
+  <li>稼働中の <code>kukai-ai</code> は c7af748 の常時層に同期済み（同期後の dry-run は noop）</li>
+  <li>Phase 3 の B0・B1 の本物の記録は、新しい束の検査（未コミットの記録・検索の印）を通る</li>
+</ul>
+
+<h2>旦那様の重要な気づき</h2>
+<ol>
+  <li>F13 は最澄に貸したかどうかはどうでもよい。内容のとおりに答えるかが重要。</li>
+  <li>何をいつ書いたか・書いていないかはどうでもよい。経典があればその内容に即して答えればよい。</li>
+  <li>細かい答えを逐一修正するのは RAG ではなく LoRA 的な教育ではないか。</li>
+  <li>細部の修正は切りが無いのではないか。</li>
+  <li>機械的に確認できる項目は AI がやればよい。知りたいのは、正しい方向か、今何をやろうとしているか、進展と方向性、大勢の結果。</li>
+  <li>見積もりはなるべく正確に（時間制限の意味ではない）。</li>
+  <li>明らかに修正した方がよいものは修正せよ。</li>
+</ol>
+
+<h2>関連メモリ</h2>
+<ul>
+  <li><code>kukai-ai-project-state</code>：本セッションの経過と次の会話の手順を追記</li>
+  <li><code>kukai-eval-yardstick-faithfulness</code>（新設）：評価の物差しは「内容どおりに答えるか」</li>
+  <li><code>report-big-picture-first</code>（書き直し）：報告は方向・いま・進捗・大勢の結果の 4 点、機械的な確認は AI がやる</li>
+  <li><code>MEMORY.md</code>：上の 2 件の索引を追加・更新</li>
+</ul>
+
+<h2>次セッションの推奨手順</h2>
+<h3>残作業</h3>
+<ul>
+  <li>埋め込みモデル比較の結果（<code>preflight/2026-09-19-embedding/results.md</code>、会話終了時に計算中、未コミット）を読み、事前の決めでモデルを選ぶ</li>
+  <li><code>fetch_sat.py</code> のテストを足す</li>
+</ul>
+<h3>次フェーズ候補</h3>
+<ol>
+  <li>Open WebUI の埋め込みモデルの入れ替え（全体設定。ほかの Knowledge の作り直しの要否を旦那様に確かめてから GO）</li>
+  <li>記録の見出しに Knowledge の一覧と指紋・RAG 設定の指紋を入れ、K1 を <code>runs/</code> に取らない止めを外す</li>
+  <li>投入スクリプト（Knowledge の作成・アップロード・agent.yaml・同期）と投入の GO、先行確認</li>
+  <li>K1 本番（32 問 × 3 回）→ 採点（引用の印の扱い、付け足し・書き換えの判定、tally の一般化、Astra は trap の束だけ）</li>
+</ol>
+<p>見積もり（本日の実績から）：残り 3.5〜4.5 時間（GO をいただくまでの待ちを除く）。</p>
+<h3>学び</h3>
+<ul>
+  <li>与えた内容が薄い（目録の 1 行）と、モデルは規則や温度に関係なく自分の知識で埋める。本文を渡すと付け足しは消えた。付け足しを防ぐ道は本文を渡すこと。</li>
+  <li>モデルや設定の選定に評価の問いを使わない（試験問題の下見になる）。練習問題を別に作る。</li>
+  <li>事前に決めた改訂の条件（rubric）は、都合で読み替えない。別の定義ファイルで足す。</li>
+  <li>後から合否の基準を変えたときは、変えた事実とその理由を設計書に残す。</li>
+</ul>
+
+<h2>会話ログ</h2>
+<div class="dialog">
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#1</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">続きをやろう。現状を確認して、再開して</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#2</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">再開点は設計書の確認。点検で穴 2 つ（『御遺告』に H02 の答え、目印照合が漢文に効かない）と runs/ の見張りの抜けを報告。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#3</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">設計書に3 点を書き足して</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#4</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">3 点を書き足し（+20/−5）。引用と行番号は原典と照合済み。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#5</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">コミットとpushして手順２を開始して</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#6</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">d4a48a1 を push。段 1 の確かめは 1 度目 15/15、2 度目に F13 の 1 回答が「お願いを受けたことはなく」と断定して不合格。原因は知識の欠如と報告。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#7</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">F13は最澄に貸したかどうかについてはどうでもいい。その内容についてその内容通りに回答するかどうかが重要だ。</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#8</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">物差しを「内容どおり」に改めると、F11 は 6/6 が目録に無い元号を足していた。規則の強化・判定の追加・比較の土台を提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#9</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">書き足して修正着手して下さい。</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#10</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">規則 1 を強めても F11 は 3/3 で元号などを足した。事前の決めどおり停止し、温度を下げる確かめを提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#11</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">温度 0.2 の確かめを実施して</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#12</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">温度 0.2 でも 3/3 が付け足し、1 回答は 797 年を 777 年に書き換え。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#13</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">今何をやっているのか、細かい修正の必要性を分かりやすく説明して</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#14</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">今日わかったこと？私は全然わかっていないが。何をどうやっていこうとしてるのかもわからない</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#15</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">目的（本を読ませて本のとおりに答える AI）、やり方 3 段、いまは本を読ませる前の設定の直し、と説明し直した。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#16</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">細かい作業はわかるのだが、切りが無いのではと思うのだが</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#17</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">細部を追いすぎたと認め、細かい直しの打ち止めと、本文を手で渡す 30 分の上限の試験を提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#18</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">なんというか、何をいつ書いたか、書いていないはどうでもいい。例えばその経典があるのならその経典の内容を答える、経典の内容に即した答えをする様にようになればいいと思うのだが、本当の事を言うとこういう細かい内容の答えを逐一全て修正していかないといけないのか？それはもはやRAGではなくLora的な教育ではないのか？</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#19</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">逐一の修正は不要で、RAG で直すのは資料・探し方・指示とモデルの仕組みだけ。評価の中心を経典の内容を問う 10 問に置くと回答。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#20</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">では具体的にこの後はどう進めていく？</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#21</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">手順 0〜4（片付け→上限の試験→本を読ませる準備→本番と採点→調整最大 2 回）、2〜3 日と提示。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#22</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">とりあえず着手して</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#23</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">上限の試験は 9/9 が本文どおり、付け足し 0 で合格。方向は成り立つ。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#24</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">コミットしてpushし、続きを行ってください</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#25</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">稼働中の空海AIへの反映の判断とは？</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#26</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">分かりにくいなぁ。分かりやすく説明せよ。なにを判断すれば良い？</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#27</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">判断していただくのは「ブラウザの空海AIを今日直した版に入れ替えてよいか」の一つだけ、推奨は「はい」。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#28</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">明らかに修正した方がいいのなら修正しろ。</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#29</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">稼働中の空海AIへ同期済み（同期後 noop）。手順 2 は code-reviewer の指摘を反映し、テスト 382 件。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#30</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">なんだかやっていることが全然見えない。分からない。なぜだ？正しい方向へ進んでいるのか、そうでないのか判断するにはどうすれば良いのだ？</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#31</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">作業の大半が測る道具づくりで、空海AIそのものはまだ変わっていないと説明。3 つの数字で判断できると提示。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#32</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">機械的に確認する項目を私が確かめる必要はあまりない。それはあなたにもできる。私が知りたいのは、正しい方向へ進んでいるのか、今何をやろうとしているのか、タスクの進展と方向性、大勢的な結果だ</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#33</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">方向：合っている（上限の試験 9/9）。いま：本を持たせる手前。残り：本を持たせる・試験と採点・調整。大勢：本が無いと付け足す、本文を渡すと消える。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#34</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">コミットしてpushはOK。見積もりの時間は正直そんなにかからないだろ？abは時間がかかっても2時間で終わると思うのだが</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#35</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">別に時間リミットを設定したわけではない。見積もりをなるべく正確にせよという事だ</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#36</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">67d0f35 を push。実績から見積もり直し：本を持たせる 2.5〜3 時間、試験と採点 1.5〜2 時間。9 冊の本文を取得、『即身成仏義』の異本を除外。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#37</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">切りが良いところで会話を区切った方が良さそうか？</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#38</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">区切るのがよいと回答。埋め込みの比較結果・コミット・引き継ぎの記録の 3 つを済ませてから。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#39</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">コミットとpushして会話を記録して</div>
+  </div>
+  <div class="dialog-block ai">
+    <span class="dialog-num">#40</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">98ffcc2 を push（9 冊の取り込み・見張り・検索箇所の記録・設計書の追記）。メモリー更新と本まとめを作成。</div>
+  </div>
+
+</div>
+
+</body>
+</html>
