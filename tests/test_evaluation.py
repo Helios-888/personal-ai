@@ -277,3 +277,22 @@ def test_render_eval_transcript_marks_an_empty_answer():
     text = render_eval_transcript(HEADER, [AnswerRecord(1, question, result("  "))])
 
     assert "（本文なし）" in text
+
+
+SOURCES = ({"source": {"name": "primary__即身成仏義.md"}, "document": ["T2428_.77.0382c22 若依\nT2428_.77.0383a03 等"]},)
+
+
+def test_answer_json_keeps_the_retrieved_passages_when_there_are_some():
+    question = EvalQuestion("F02", "factual", "q")
+
+    data = json.loads(answer_json("K1", AnswerRecord(1, question, replace(result("答"), sources=SOURCES))))
+
+    assert data["sources"] == list(SOURCES)
+
+
+def test_render_eval_transcript_lists_the_retrieved_passages_under_the_answer():
+    question = load_eval_questions(FROZEN)[0]
+
+    text = render_eval_transcript(HEADER, [AnswerRecord(1, question, replace(result("答"), sources=SOURCES))])
+
+    assert "検索された箇所：primary__即身成仏義.md（T2428_.77.0382c22–T2428_.77.0383a03）" in text

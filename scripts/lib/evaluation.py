@@ -3,12 +3,14 @@
 設計は docs/specs/2026-09-18-phase3-design.md「評価実行スクリプト」。
 """
 import json
+import re
 from dataclasses import asdict, dataclass
 from typing import Optional
 
 import yaml
 
 from scripts.lib.llm_client import ChatResult
+from scripts.lib.sat import LINE_ID
 
 _REQUIRED_FIELDS = ("id", "kind", "text")
 END_STATUSES = ("complete", "interrupted")
@@ -113,6 +115,7 @@ def answer_json(condition: str, record: AnswerRecord) -> str:
             "prompt_tokens": result.prompt_tokens,
             "completion_tokens": result.completion_tokens,
             "elapsed_seconds": result.elapsed_seconds,
+            **({"sources": list(result.sources)} if result.sources else {}),  # 検索された箇所（K1）
         },
         ensure_ascii=False,
     )
@@ -207,4 +210,18 @@ def _answer_section(record: AnswerRecord) -> list[str]:
     if result.reasoning:
         stats.append(f"思考 {len(result.reasoning)} 字")
     stats.append(f"finish={result.finish_reason}")
-    return [f"### {record.repeat} 回目（" + "、".join(stats) + "）", "", body or "（本文なし）"]
+    lines = [f"### {record.repeat} 回目（" + "、".join(stats) + "）", "", body or "（本文なし）"]
+    if result.sources:
+        lines += ["", "検索された箇所：" + "、".join(_source_ranges(result.sources))]
+    return lines
+
+
+def _source_ranges(sources) -> list[str]:
+    """検索された箇所を「資料名（最初の行 ID–最後の行 ID）」で並べる。本文は answers.jsonl に残る。"""
+    ranges = []
+    for source in sources:
+        name = (source.get("source") or {}).get("name") or "（名前なし）"
+        for document in source.get("document") or []:
+            ids = re.findall(LINE_ID, document)
+            ranges.append(f"{name}（{ids[0]}–{ids[-1]}）" if ids else name)
+    return ranges

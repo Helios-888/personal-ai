@@ -183,3 +183,19 @@ def test_chat_result_prompt_tokens_defaults_to_zero_for_existing_callers():
     result = ChatResult(content="c", reasoning="", finish_reason="stop", completion_tokens=1, elapsed_seconds=0.1)
 
     assert result.prompt_tokens == 0
+
+
+def test_chat_completion_keeps_the_passages_open_webui_retrieved():
+    # 付け足し・書き換えの判定には、回答ごとに検索された箇所が要る（faithfulness.yaml）。Open WebUI は応答の sources で返す
+    sources = [{"source": {"name": "primary__即身成仏義.md"}, "document": ["T2428_.77.0382c22 四種曼荼羅者"], "distances": [0.4]}]
+    payload = {**completion_payload("x"), "sources": sources}
+
+    result = call(lambda url, json, timeout: FakeResponse(200, payload))
+
+    assert result.sources == tuple(sources)
+
+
+def test_chat_result_has_no_sources_without_retrieval():
+    result = call(lambda url, json, timeout: FakeResponse(200, completion_payload("x")))
+
+    assert result.sources == ()

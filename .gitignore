@@ -15,3 +15,5 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+.venv-embed/
+.cache-hf/

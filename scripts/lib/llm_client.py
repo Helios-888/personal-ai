@@ -21,6 +21,7 @@ class ChatResult:
     completion_tokens: int
     elapsed_seconds: float
     prompt_tokens: int = 0  # 経路ごとに実際に送られた入力の大きさを比べるため
+    sources: tuple = ()  # Open WebUI が検索で渡した箇所（応答の sources）。付け足し・書き換えの判定に使う。検索が無ければ空
 
 
 def chat_completion(
@@ -76,6 +77,7 @@ def _parse(payload, elapsed: float) -> ChatResult:
         completion_tokens=int(usage.get("completion_tokens") or 0),
         elapsed_seconds=elapsed,
         prompt_tokens=int(usage.get("prompt_tokens") or 0),
+        sources=tuple(payload.get("sources") or ()),
     )
 
 
