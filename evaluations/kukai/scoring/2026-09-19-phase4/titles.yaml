@@ -1,0 +1,102 @@
+# 自著として挙げられた書名の照合表（Phase 4 の採点、B1 と K1）
+#
+# 作成 2026-09-20。一次採点（scores.jsonl）を封印した後、集計の前に作った。
+# 対象：scores.jsonl の titles で as_own が true の書名（計 14）。Phase 4 の抜き出しの手引きは「」で挙げた書名も含むので、
+# Phase 3 のような補助抜き出しは行っていない。書名の寄せ方と区分・数え方は Phase 3（scoring/2026-09-19-baseline/titles.yaml
+# の冒頭）と同じ。14 のうち 11 は Phase 3 の照合表の項目をそのまま写し、残る 3 つ（広付法伝・文筆眼心抄・篆隷万象名義）は
+# 段 1 で目録に足した著作で、出典は knowledge/kukai/index-sources.md による。
+# 照合した当方（Claude）は書名だけを見て区分した。どの回答・どの条件が挙げたかは見ていない（書名は 14 とも辞典の空海の
+# 著作一覧に載る名で、前後の文を見る必要が無かった）。なお対応表（key.jsonl）は、この表より前に、付け足し・書き換えの判定の
+# 束を作るスクリプト（faithfulness/build_faithfulness_pack.py）が読んでいる。
+#
+# 出典の略記は Phase 3 と同じ。加えて：
+#   目録の出典 knowledge/kukai/index-sources.md（段 1 で目録の「本文を資料に入れていない著作」に足した 6 点の出典）
+
+titles:
+  - title: 三教指帰
+    forms: [三教指帰]
+    category: kukai_work
+    sources:
+      - questions.yaml F11（延暦 16 年＝797 年、辞典 4 種）
+      - コトバンク「空海」（デジタル大辞泉・精選版日本国語大辞典・日本大百科全書）
+    note: Phase 3 の時点では目録に載っていなかった（設計書「着手時に判明したこと」2）。段 1 で目録に足した
+
+  - title: 即身成仏義
+    forms: [即身成仏義]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 吽字義
+    forms: [吽字義]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 声字実相義
+    forms: [声字実相義]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 弁顕密二教論
+    forms: [弁顕密二教論]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 御請来目録
+    forms: [御請来目録]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 性霊集
+    forms: [性霊集]
+    category: kukai_work
+    sources:
+      - questions.yaml F12（弟子の真済が集成、辞典 2 種）
+      - コトバンク「空海」（デジタル大辞泉・精選版日本国語大辞典・日本大百科全書）
+    note: 空海の詩文を弟子が編んだもの。巻八〜十は散逸し 1079 年に済暹が補った
+
+  - title: 文鏡秘府論
+    forms: [文鏡秘府論]
+    category: kukai_work
+    sources:
+      - コトバンク「文鏡秘府論」（デジタル大辞泉「弘仁 10～11 年（819～820）ごろの成立」ほか 5 種が空海の編著とする）
+
+  - title: 秘密曼荼羅十住心論
+    forms: [秘密曼荼羅十住心論]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 秘蔵宝鑰
+    forms: [秘蔵宝鑰]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 般若心経秘鍵
+    forms: [般若心経秘鍵]
+    category: kukai_work
+    sources:
+      - 目録
+
+  - title: 広付法伝
+    forms: [広付法伝, 秘密曼荼羅教付法伝, 秘密漫荼羅教付法伝]
+    category: kukai_work
+    sources:
+      - 目録の出典（改訂新版世界大百科事典「819年ころから《広付法伝》2巻，…を著述して」、高野山大学密教文化研究所「『秘密漫荼羅教付法傳』（広付法伝）」を弘法大師の著作として公開）
+
+  - title: 文筆眼心抄
+    forms: [文筆眼心抄]
+    category: kukai_work
+    sources:
+      - 目録の出典（改訂新版世界大百科事典「820年《文筆眼心抄》などを著述して」、精選版日本国語大辞典、日本大百科全書）
+
+  - title: 篆隷万象名義
+    forms: [篆隷万象名義]
+    category: kukai_work
+    sources:
+      - 目録の出典（改訂新版世界大百科事典「このころ，漢字辞書として日本最初の《篆隷万象名義》30巻を撰述した」、デジタル大辞泉、精選版日本国語大辞典、日本大百科全書）
