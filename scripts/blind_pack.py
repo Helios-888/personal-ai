@@ -12,6 +12,8 @@
   採点者には pack/ の写しをリポジトリの外に置いて渡す（リポジトリの中だと key.jsonl や履歴に届く）。
   出力先が既にあれば何も書かずに止まる。途中で書けなくなったら、作りかけの出力先を消して止まる。
   並べ替えの種は OS の乱数から作り、key.jsonl に記録する。
+  回答の本文は、引用の番号 [n] を前の空白ごと全回答から除いて載せ、除いた数を key.jsonl に残す（元の記録は変えない）。
+  ほかの検索の印（<source>、SAT の行 ID、資料のファイル名）が残る回答があれば止まる。
 """
 import argparse
 import hashlib
@@ -28,6 +30,7 @@ if __package__ in (None, ""):  # スクリプトとして直接実行された�
 import yaml  # noqa: E402
 
 from scripts.lib.blinding import (  # noqa: E402
+    CITATION,
     RunRecord,
     blind_groups,
     key_lines,
@@ -35,6 +38,7 @@ from scripts.lib.blinding import (  # noqa: E402
     read_run,
     render_guide,
     render_sheet,
+    strip_run_citations,
 )
 from scripts.lib.cli import LABEL_PATTERN, display  # noqa: E402
 from scripts.lib.freeze import read_frozen_text, read_record, record_path  # noqa: E402
@@ -46,9 +50,11 @@ PACK_DIR = "pack"
 GUIDE_FILE = "00-guide.md"
 KEY_FILE = "key.jsonl"
 SAME_SETTINGS = ("questions_sha256", "route", "temperature", "max_tokens", "repeats")  # 比較の土俵。条件どうしで揃う欄
-# 検索の印。資料ありの条件の回答にしか出ないので、束に残ると採点者に条件が分かる（Phase 4 設計書「採点」）
+# 検索の印。資料ありの条件の回答にしか出ないので、束に残ると採点者に条件が分かる（Phase 4 設計書「採点」）。
+# 引用の番号 [n] は除いてから確かめる（blinding.CITATION）。除けなかった形の番号と、除いた跡の空白はここで止める
 RETRIEVAL_MARKERS = {
-    "引用の印 [n]": re.compile(r"\[\d+\]"),
+    "引用の番号の残り": re.compile(r"[\[［【]\s*[0-9０-９]+\s*(?:[,，、\-–]\s*[0-9０-９]+\s*)*[\]］】]"),
+    "句読点の前の空白": re.compile(r"[^\S\n][。、]"),
     "<source> タグ": re.compile(r"<source"),
     "SAT の行 ID": re.compile(r"T\d{4}[A-Z]?_?\.\d{2}\.\d{4}[abc]\d{2}"),
     "資料のファイル名の区分": re.compile(r"(?<![a-z-])[a-z][a-z-]*__"),
@@ -81,7 +87,8 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
     questions_sha256 = read_record(record_path(questions_path))[0]
     records = parse_runs(args.run)
     loaded = {condition: load_run(root, folder, condition, questions_sha256) for condition, folder in records.items()}
-    runs = {condition: record for condition, (record, _) in loaded.items()}
+    runs = {condition: strip_run_citations(record) for condition, (record, _) in loaded.items()}
+    removed = {condition: sum(a.citations_removed for a in run.answers) for condition, run in runs.items()}
     settings = same_settings(runs)
     check_committed_runs(runs)
     check_retrieval_markers(runs)
@@ -107,6 +114,7 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
             condition: {"path": records[condition], "answers_sha256": digest}
             for condition, (_, digest) in loaded.items()
         },
+        "citations": {"pattern": CITATION.pattern, "removed": removed},  # 束の本文と元の記録の違いはこれだけ
         "python": sys.version.split()[0],  # random の並びは版によって変わりうる。再現の手がかりに残す
     }
     out = root / args.out
@@ -118,6 +126,7 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
     answers = sum(len(g.answers) for g in groups)
     print(f"pack: {display(out / PACK_DIR, root)}（手引き 1 枚＋採点票 {len(groups)} 枚、回答 {answers} 件）")
     print(f"key:  {display(out / KEY_FILE, root)}（採点が終わるまで開かない）")
+    print(f"除いた引用の番号: {'、'.join(f'{c} {n} 個' for c, n in removed.items())}")
     return 0
 
 
@@ -175,7 +184,7 @@ def check_committed_runs(runs: dict[str, RunRecord]) -> None:
 
 
 def check_retrieval_markers(runs: dict[str, RunRecord]) -> None:
-    """検索の印が残る回答があれば止める。印の扱い（RAG テンプレートか、全回答から一様に除くか）を先に決める。"""
+    """引用の番号を除いた後も検索の印が残る回答があれば止める。新しい種類の印は、扱いを決めてから束を作る。"""
     found = [
         f"{condition} の {answer.question_id} {answer.repeat} 回目（{name}）"
         for condition, run in runs.items()
@@ -187,7 +196,7 @@ def check_retrieval_markers(runs: dict[str, RunRecord]) -> None:
         shown = "、".join(found[:5]) + (f" ほか {len(found) - 5} 件" if len(found) > 5 else "")
         raise ValueError(
             f"採点者に条件が分かる検索の印が回答にあります（{shown}）。"
-            "印の扱い（RAG テンプレートを変えるか、束を作るときに全回答から一様に除くか）を決めてから束を作ります"
+            "引用の番号 [n] のほかは除かないので、印の扱いを決めてから束を作ります"
         )
 
 

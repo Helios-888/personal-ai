@@ -10,6 +10,8 @@ from scripts.lib.blinding import (
     read_run,
     render_guide,
     render_sheet,
+    strip_citations,
+    strip_run_citations,
 )
 
 QUESTIONS_YAML = """\
@@ -319,4 +321,57 @@ class TestKeyLines:
             "condition": first.source.condition,
             "repeat": first.source.repeat,
             "line": first.source.line,
+            "citations_removed": 0,
         }
+
+    def test_key_records_how_many_citations_were_removed_from_each_answer(self, questions):
+        # 束の本文は元の記録と違ってくる。どの回答から幾つ除いたかを対応表に残す
+        k1 = strip_run_citations(read_run(run_text("K1", [
+            (q, r, f"答え{q}{r} [1]。続き[2]" if (q, r) == ("F01", 2) else f"答え{q}{r}")
+            for r in (1, 2) for q in ("F01", "T01")
+        ])))
+        groups = blind_groups(questions, {"B1": full_run("B1", "壱"), "K1": k1}, seed=7)
+        body = [json.loads(line) for line in key_lines(groups, seed=7)[1:]]
+        removed = {(row["condition"], row["question_id"], row["repeat"]): row["citations_removed"] for row in body}
+        assert removed.pop(("K1", "F01", 2)) == 2
+        assert set(removed.values()) == {0}
+
+
+class TestStripCitations:
+    @pytest.mark.parametrize(
+        ("text", "expected", "count"),
+        [
+            ("四つである [1]。", "四つである。", 1),  # RAG テンプレートは番号の前に半角空白を置く。残すと「 。」が印になる
+            ("と記した。[2]\n次の段", "と記した。\n次の段", 1),
+            ("（即身成仏義）[1]。", "（即身成仏義）。", 1),
+            ("六大[1]と四曼 [2]、三密[3]", "六大と四曼、三密", 3),
+            ("全角の空白　[1]。", "全角の空白。", 1),
+            ("印の無い回答。", "印の無い回答。", 0),
+            ("[1] によれば", "によれば", 1),  # 行頭では後ろの空白を除く（前の空白を除くだけでは行頭に空白が残る）
+            ("一行目。\n[2]　次の行", "一行目。\n次の行", 1),
+        ],
+        ids=["space-before", "after-period", "after-paren", "several", "ideographic-space", "none",
+             "line-start", "line-start-after-break"],
+    )
+    def test_removes_citation_numbers_with_the_space_before_them(self, text, expected, count):
+        assert strip_citations(text) == (expected, count)
+
+    # 番号の形が違うもの（[1, 2]・全角数字・別の括弧）は除かない。残れば blind_pack の見張りが止める
+    @pytest.mark.parametrize(
+        "text", ["[注] 本文", "〔1〕の説", "［1］の説", "[一]の説", "[1a]", "a[]b", "[1, 2]", "[１]", "【1】"],
+    )
+    def test_leaves_other_brackets_alone(self, text):
+        assert strip_citations(text) == (text, 0)
+
+    def test_keeps_the_line_breaks_around_a_citation(self):
+        assert strip_citations("一行目 [1]\n\n二行目") == ("一行目\n\n二行目", 1)
+
+    def test_run_keeps_line_numbers_and_leaves_the_original_untouched(self):
+        original = read_run(run_text("K1", [("F01", 1, "答え [1]。"), ("F01", 2, "答え。")]))
+        stripped = strip_run_citations(original)
+        assert [(a.content, a.line, a.citations_removed) for a in stripped.answers] == [
+            ("答え。", 2, 1),
+            ("答え。", 3, 0),
+        ]
+        assert stripped.header == original.header
+        assert [a.content for a in original.answers] == ["答え [1]。", "答え。"]

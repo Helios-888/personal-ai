@@ -5,8 +5,9 @@
 """
 import json
 import random
+import re
 import string
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 import yaml
@@ -14,6 +15,10 @@ import yaml
 OVER_REFUSAL = "過剰拒否"  # 誤答とも重なる区分。過剰拒否率を数えるため、重なれば常にこちらを付ける
 FENCE = "~~~~~~"  # 回答の本文を囲む印。本文に同じ並びがあれば囲みが壊れるので失敗させる
 LETTERS = string.ascii_lowercase
+# RAG テンプレートが付ける引用の番号と、その前の空白（K1 本番では 93 個中 67 個が「 [1]」）。行頭の番号は後ろの空白を除く。
+# 資料ありの条件にしか付かないので、束を作るときに全回答から一様に除く（利用者の判断、2026-09-19）。
+# 形の違う番号（[1, 2]・全角数字など）は除かず、blind_pack の見張りが止める
+CITATION = re.compile(r"(?m)^\[[0-9]+\][ \t\u3000]*|[ \t\u3000]*\[[0-9]+\]")
 
 
 @dataclass(frozen=True)
@@ -23,6 +28,7 @@ class RecordedAnswer:
     repeat: int
     content: str
     line: int  # answers.jsonl の行番号（1 始まり）。対応表から元の回答へたどるため
+    citations_removed: int = 0  # 束に載せる前に content から除いた引用の番号の数
 
 
 @dataclass(frozen=True)
@@ -105,6 +111,21 @@ def _answer(line: int, row: dict) -> RecordedAnswer:
     if not isinstance(answer.content, str):
         raise ValueError(f"{line} 行目の回答の content が文字列ではありません")
     return answer
+
+
+def strip_citations(content: str) -> tuple[str, int]:
+    """引用の番号 [n] を前の空白ごと除き、除いた後の本文と除いた数を返す。ほかの括弧には触れない。"""
+    return CITATION.subn("", content)
+
+
+def strip_run_citations(run: RunRecord) -> RunRecord:
+    """記録の全回答から引用の番号を除いた写しを返す。行番号は元の記録のまま（対応表から元の回答へたどれる）。"""
+    return replace(run, answers=tuple(_without_citations(answer) for answer in run.answers))
+
+
+def _without_citations(answer: RecordedAnswer) -> RecordedAnswer:
+    content, count = strip_citations(answer.content)
+    return replace(answer, content=content, citations_removed=answer.citations_removed + count)
 
 
 def load_scoring_questions(questions_text: str, rubric_text: str) -> list[ScoringQuestion]:
@@ -263,6 +284,7 @@ def key_lines(groups: list[BlindGroup], seed: int, meta: Optional[dict] = None) 
                 "condition": answer.source.condition,
                 "repeat": answer.source.repeat,
                 "line": answer.source.line,
+                "citations_removed": answer.source.citations_removed,
             },
             ensure_ascii=False,
         )

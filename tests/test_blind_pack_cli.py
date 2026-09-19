@@ -322,16 +322,38 @@ def test_refuses_a_record_taken_with_uncommitted_definitions(root, capsys, git_d
 
 @pytest.mark.parametrize(
     "marker",
-    ["四つである [1]。", "T2428_.77.0382c22 に曰く", '<source id="1">', "primary__即身成仏義.md による", "資料はprimary__即身成仏義"],
-    ids=["citation", "sat-line-id", "source-tag", "file-prefix", "file-prefix-after-kana"],
+    ["T2428_.77.0382c22 に曰く", '<source id="1">', "primary__即身成仏義.md による", "資料はprimary__即身成仏義",
+     "[1] と T2428_.77.0382c22",
+     "四つである [1, 2]。", "［1］", "【1】", "[１]", "[[1]2]", "である [1] 。"],
+    ids=["sat-line-id", "source-tag", "file-prefix", "file-prefix-after-kana", "citation-and-line-id",
+         "citation-list", "fullwidth-brackets", "lenticular-brackets", "fullwidth-digit", "nested", "space-left-before-period"],
 )
 def test_refuses_answers_that_carry_retrieval_markers(root, capsys, marker):
-    # 検索の印は資料ありの条件にしか出ないので、残すと採点者に条件が分かる（上限の試験では 9 回答中 4 に [1]）
+    # 検索の印は資料ありの条件にしか出ないので、残すと採点者に条件が分かる。引用の番号 [n] だけは除いて進む（下）。
+    # 形の違う番号や、除いた跡の空白（「 。」）が残れば止まる（code-reviewer M1・L1、2026-09-19）
     argv = k1_record(root, content=lambda q, r: f"{q}の答え{r}。{marker}")
     assert run(argv, root=root, seed_source=lambda: 1) == 1
     err = capsys.readouterr().err
     assert "K1" in err and "印" in err
     assert not (root / OUT_DIR).exists()
+
+
+def test_strips_citation_numbers_from_every_answer_and_keeps_the_record(root):
+    # 利用者の判断（2026-09-19）：RAG テンプレートの引用の番号 [n] は、束を作るときに全回答から一様に除く。
+    # K1 本番では 96 回答中 43 に計 93 個、うち 67 個は前に半角空白。元の記録（answers.jsonl）は変えない
+    argv = k1_record(root, content=lambda q, r: f"{q}の答え{r} [1]。" if r == 1 else f"{q}の答え{r}。")
+    before = file_sha256(root / K1_DIR / "answers.jsonl")
+    assert run(argv, root=root, seed_source=lambda: 1) == 0
+    texts = pack_texts(root)
+    assert all("[1]" not in text and " 。" not in text for text in texts.values())
+    assert f"~~~~~~{NL}F01の答え1。{NL}~~~~~~" in texts["F01.md"]
+    key = read_key(root)
+    assert key[0]["citations"]["removed"] == {"B1": 0, "K1": 2}
+    assert key[0]["citations"]["pattern"]
+    assert {(row["condition"], row["repeat"], row["citations_removed"]) for row in key[1:]} == {
+        ("B1", 1, 0), ("B1", 2, 0), ("K1", 1, 1), ("K1", 2, 0),
+    }
+    assert file_sha256(root / K1_DIR / "answers.jsonl") == before == key[0]["sources"]["K1"]["answers_sha256"]
 
 
 def test_hides_the_parent_folder_of_each_record(root, capsys):
