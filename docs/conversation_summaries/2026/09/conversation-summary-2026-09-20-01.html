@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会話まとめ 2026-09-20-01 — Phase 4 の採点・判定を完了し、集計の直前で確定事項を決めた</title>
+<style>
+  body { font-family: "Segoe UI", "Yu Gothic UI", sans-serif; margin: 24px; color: #222; background: #fafafa; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-left: 6px solid #3b82f6; padding-left: 10px; background: #eef3fb; padding: 6px 10px; }
+  h3 { margin-top: 20px; color: #1e3a8a; border-bottom: 1px dashed #93c5fd; padding-bottom: 3px; }
+  h4 { margin-top: 14px; color: #1e40af; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #e5e7eb; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+  .ok   { background: #d1fae5 !important; }
+  .warn { background: #fef3c7 !important; }
+  .ng   { background: #fee2e2 !important; }
+  .info { background: #dbeafe !important; }
+  .muted { color: #666; }
+  .pos { color: #059669; font-weight: bold; }
+  .neg { color: #dc2626; font-weight: bold; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: "Consolas", "Courier New", monospace; }
+  pre  { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.45; }
+  ul, ol { line-height: 1.8; }
+
+  /* 会話まとめ固有 */
+  .headline-card { background: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 12px 0 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .headline-card .label { font-size: 12px; color: #1e40af; letter-spacing: 0.05em; }
+  .headline-card .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+  .conclusion { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+
+  /* 会話ログ */
+  .dialog { margin: 14px 0; }
+  .dialog-block { margin: 10px 0; padding: 10px 14px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; }
+  .dialog-block.master { border-left: 5px solid #2563eb; background: #eff6ff; }
+  .dialog-block.ai { border-left: 5px solid #6b7280; background: #f9fafb; }
+  .dialog-num { display: inline-block; min-width: 36px; font-family: "Consolas", monospace; font-size: 11px; color: #6b7280; margin-right: 6px; }
+  .speaker-master { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .speaker-ai     { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .dialog-body { margin-top: 6px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; }
+  .elide { display: inline-block; padding: 1px 8px; margin: 2px 0; background: #f3f4f6; color: #6b7280; font-style: italic; font-size: 12px; border-radius: 3px; border: 1px dashed #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>会話まとめ 2026-09-20-01</h1>
+<div class="headline-card">
+  <div class="label">HEADLINE</div>
+  <div class="value">Phase 4 の採点・判定を 192 回答すべて終え、集計の直前で関門の数値を確定した</div>
+</div>
+<p class="meta">実施日: 2026-09-20（開始は 2026-09-19 夜）/ リポジトリ: llm01 <code>/home/aiadmin/personal-ai</code> / ブランチ: main / 集計（tally）は未実施</p>
+
+<h2>セッション概要</h2>
+
+<p><strong>起点：</strong>前回（2026-09-19 session 04）で K1 本番（資料ありの空海AI、32 問 × 3 回 = 96 回答）が完走し、記録を封印済み。K1 の回答 43 件に RAG テンプレート由来の引用番号「[n]」が付いており、盲検の束を作るスクリプトがそこで停止していた。その扱いの判断が、本セッションの最初の持ち越し事項だった。</p>
+
+<p><strong>進行段取り：</strong></p>
+<ol>
+  <li>埋め込みモデル入れ替えの影響範囲の確認（Open WebUI のメモリ機能を公開ソースで調査 → 旦那様はシステムプロンプトのみ利用のため影響なし）</li>
+  <li>引用番号の扱いを決定（採点用の写しから一様に除去）し、TDD で実装 → 点検 → コミット・push</li>
+  <li>盲検の束を作成して封印 → 一次採点 4 体（192 回答）</li>
+  <li>GPT-6 Astra（ChatGPT）に trap 束 60 回答を採点依頼 → 一致 59/60</li>
+  <li>付け足し・書き換えの判定（faithfulness）：4 体同時起動で利用枠上限に到達 → 1 体ずつ取り直し</li>
+  <li>集計スクリプト <code>tally.py</code> の一般化（B1 対 K1、内容 10 問、範囲限定の採点者、関門）を TDD で実装 → 点検（Block）→ 全指摘反映</li>
+  <li>書名の区分表・判定結果の封印コミット。集計の直前で、関門の数値と判定の数え方を旦那様が確定</li>
+</ol>
+
+<h2>各段階のサマリ</h2>
+
+<h3>段階 1: 埋め込みモデル入れ替えの影響確認</h3>
+<ul>
+  <li>前セッションで Open WebUI 全体の埋め込みモデルを all-MiniLM-L6-v2 → BAAI/bge-m3 に変更済み。他の資料（Knowledge）の有無が未回答だった。</li>
+  <li>Open WebUI v0.11.3 の公開ソースを確認：メモリ機能（設定 &gt; パーソナライズ）は種類 <code>context</code> のメモリをベクトル検索で拾うため、埋め込み変更で検索が黙って失敗しうる。種類 <code>user</code> のメモリと、システムプロンプトは影響を受けない。</li>
+  <li>旦那様の回答「システムプロンプト以外は特に設定していない」→ <strong>影響なしで決着</strong>。</li>
+</ul>
+
+<h3>段階 2: 引用番号 [n] の除去（盲検の維持）</h3>
+<ul>
+  <li>実測：K1 は 96 回答中 43 件・計 93 個、うち 67 個は直前に半角空白。B0・B1 は 0 個。他の検索の印（<code>&lt;source&gt;</code>・SAT 行 ID・ファイル名）は無し。</li>
+  <li>決定（旦那様）：採点用の写しからのみ、番号を前の空白ごと一様に除去。元の記録は変更しない。</li>
+  <li>TDD で実装。<code>blinding.CITATION</code>、<code>strip_citations</code>、<code>key.jsonl</code> に除去数を記録。点検（code-reviewer）は Approve、M1・L1〜L4 を反映（形の違う番号「[1, 2]」「［1］」「【1】」や、除去跡の「 。」が残れば停止）。</li>
+  <li>コミット <code>594cd26</code>（コード）→ <code>7489dd2</code>（束と対応表の封印）を push。</li>
+</ul>
+
+<h3>段階 3: 一次採点と ChatGPT の照合</h3>
+<ul>
+  <li>一次採点：会話を見ていない Claude Opus 5 のサブエージェント 4 体（F01–F08 / F09–F15 / A・H / T）。192 行を <code>scores.jsonl</code> に統合、形式検査 OK。<code>grader-notes.md</code> に各体の報告。</li>
+  <li>封印コミット <code>40afe21</code>（条件を開く前）。</li>
+  <li>GPT-6 Astra：旦那様が ChatGPT へ trap 束（60 回答、約 2 万字）を添付・貼り付け。60 行の形式 OK、一次採点と <strong>59/60（98.3%）一致</strong>（食い違いは T10-a のみ）。基準の 9 割を超えたため一次採点を正式とし、他の束の再採点は不要。</li>
+</ul>
+
+<h3>段階 4: 付け足し・書き換えの判定（faithfulness）</h3>
+<ul>
+  <li>判定の束：常時層（指紋が K1 の記録と一致）＋ 回答ごとの検索された箇所（K1 96 回答に 3 箇所ずつ、B1 96 回答は「無し」）。対応表はスクリプトのみが読み、条件の対応は画面に出していない。</li>
+  <li>4 体同時起動 → <strong>利用枠の上限で 4 体とも出力なしで停止</strong>。旦那様の指示で 1 体ずつ・1 問ごとに書き足す形に変更して取り直し。</li>
+  <li>4 体とも完了。192 行を <code>faithfulness.jsonl</code> に統合（付け足しか書き換えのある回答は 89 件、条件別の内訳は未集計）。</li>
+  <li>判定役どうしで「語の説明」の読みが不一致（1 体目は「四大」→「地・水・火・風」の言い換えを付け足しに数え、4 体目は同種を数えず）。影響は内容 10 問の 4 回答（F01-a/c/f、F08-c）。<code>faithfulness/notes.md</code> に注記。</li>
+</ul>
+
+<h3>段階 5: 集計スクリプトの一般化</h3>
+<ul>
+  <li>条件名を <code>key.jsonl</code> の見出しから取得（基準値が先、ちょうど 2 条件、1 つ目は <code>baseline/</code>）。</li>
+  <li>経典の内容を問う 10 問（F01–F04・F06–F10・F15）の指標を追加し、報告で先頭に配置。評価セットに 10 問が factual としてそろわなければ停止。</li>
+  <li>2 人目の採点範囲を宣言制に（<code>--second-scope</code>）。出力の種類と食い違えば停止。範囲外は「—」、照合相手がなければ「照合なし」。</li>
+  <li><code>faithfulness.jsonl</code> は Phase 4 の形では必須（無ければ停止、<code>--no-faithfulness</code> でのみ明示的に回避）。正確さの関門の節を追加。</li>
+  <li>点検（code-reviewer）は <span class="neg">Block</span>（重大 2 件：判定ファイルが無いと関門が黙って消える／2 人目の結果欠けを「範囲が狭い」と取り違える）。全指摘をテストつきで反映。</li>
+  <li>Phase 3 の記録を新しい部品で集計し直し、<code>tally.md</code> の 9 指標がすべて一致することを確認（後方互換の確認）。</li>
+</ul>
+
+<h2>数値検証</h2>
+
+<table>
+  <tr><th>項目</th><th>値</th><th>備考</th></tr>
+  <tr><td>引用番号の除去</td><td>K1 93 個 / B1 0 個</td><td>採点用の写しのみ。束に「[n]」「 。」の残り 0</td></tr>
+  <tr><td>一次採点</td><td>192 回答</td><td>Opus 5 サブエージェント 4 体、形式検査 OK</td></tr>
+  <tr class="ok"><td>ChatGPT（Astra）との一致</td><td>59/60（98.3%）</td><td>基準 9 割以上 → 一次採点を正式値に</td></tr>
+  <tr><td>付け足し・書き換えあり</td><td>89/192 回答</td><td>条件別の内訳は集計時に開く</td></tr>
+  <tr><td>自著として挙げた書名</td><td>14 種すべて実在の著作</td><td>架空引用は両条件 0 の見込み（集計で確定）</td></tr>
+  <tr><td>検索の命中（機械的、前回計測）</td><td>内容 10 問中 7 問</td><td>外れは F04・F09・F10、3 回とも同じ</td></tr>
+  <tr><td>テスト</td><td>580 件合格 / カバレッジ 98%</td><td>Phase 3 の 9 指標も再現一致</td></tr>
+  <tr class="warn"><td>判定役のトークン消費</td><td>約 68 万（4 体合計）</td><td>1 体 15〜20 万。一次採点は 1 体 8〜10 万</td></tr>
+</table>
+
+<h2>最終構成</h2>
+
+<h3>新規ファイル（リポジトリ）</h3>
+<ul>
+  <li><code>evaluations/kukai/scoring/2026-09-19-phase4/pack/</code> — 盲検の採点票 32 枚＋手引き（192 回答）</li>
+  <li><code>evaluations/kukai/scoring/2026-09-19-phase4/scores.jsonl</code> — 一次採点 192 行、<code>grader-notes.md</code> — 採点役 4 体の報告</li>
+  <li><code>evaluations/kukai/scoring/2026-09-19-phase4/astra/</code> — trap 束・ChatGPT の結果 60 行・束の作成スクリプト</li>
+  <li><code>evaluations/kukai/scoring/2026-09-19-phase4/faithfulness.jsonl</code>（192 行）と <code>faithfulness/</code>（判定役の報告・束の作成スクリプト）</li>
+  <li><code>evaluations/kukai/scoring/2026-09-19-phase4/titles.yaml</code> — 自著として挙げた 14 書名の区分（全件出典つき）</li>
+  <li><code>tests/test_tally_generic.py</code> — 集計の一般化のテスト</li>
+</ul>
+
+<h3>編集</h3>
+<ul>
+  <li><code>scripts/lib/blinding.py</code>・<code>scripts/blind_pack.py</code> — 引用番号の除去と見張り</li>
+  <li><code>scripts/lib/tally.py</code>・<code>scripts/lib/tally_report.py</code>・<code>scripts/tally.py</code> — 条件名の一般化、内容 10 問、範囲限定の採点者、付け足しの指標、関門</li>
+  <li><code>docs/specs/2026-09-19-phase4-design.md</code> — 引用番号の決定、集計の手直し、着手時に判明したこと 17〜20、関門の数値の確定と数え方</li>
+</ul>
+
+<h3>コミット（すべて push 済み）</h3>
+<ul>
+  <li><code>594cd26</code> 引用番号の一様な除去　<code>7489dd2</code> 盲検の束の封印</li>
+  <li><code>40afe21</code> 一次採点の封印（条件を開く前）</li>
+  <li><code>83e73e4</code> 集計スクリプトの一般化　<code>92c822c</code> Astra の結果・付け足しの判定・書名の区分表の封印</li>
+</ul>
+
+<h2>旦那様の重要な気づき</h2>
+<ol>
+  <li><strong>サブエージェントの同時起動を避ける</strong>：「トークンが一気になくなって、トークン消費が読めなくなるので、4 体同時はやらない方が良いと思う」。以後は 1 体ずつ、1 区切りごとに書き足す方式に変更。</li>
+  <li><strong>専門用語の説明が通じないときは、まず何の話かを示す</strong>：「メモリのどれか 1 件を開き、そのまま保存し直してください」という指示に対し「何のことを言っているのかさっぱり分らん」。前提（どこに何が登録されているか）を確かめてから手順を出すべきだった。</li>
+  <li><strong>関門の数値は、結果を見る前に確定する</strong>：AI 側が本番前の確定を取り忘れていた件を報告したところ、集計前に「それでいい（案のまま確定）」と即断。後知恵を避ける運用を維持。</li>
+</ol>
+
+<h2>関連メモリ</h2>
+<ul>
+  <li><code>no-parallel-subagents.md</code>（新設）— サブエージェントは 1 体ずつ。長い作業は一区切りごとに書き足させる</li>
+  <li><code>kukai-ai-project-state.md</code>（更新）— 引用番号の決定、採点・判定の完了、集計前の確定事項、次の一手</li>
+</ul>
+
+<h2>次セッションの推奨手順</h2>
+
+<p><strong>残作業（集計の直前で停止中）：</strong></p>
+<ol>
+  <li>「語の説明」の食い違いに備えた<strong>参考値</strong>（F01-a/c/f・F08-c を除いた付け足し数）を集計の報告に出す実装（TDD、未着手）。</li>
+  <li><code>scripts/tally.py --scoring evaluations/kukai/scoring/2026-09-19-phase4</code> を実行し、条件を戻して集計（<code>tally.md</code> を作成）。</li>
+  <li><code>runs/README.md</code> に B1 と K1 の指標（内容 10 問を先に）と問いごとの変化を記す。設計書と README のフェーズ表を更新。</li>
+  <li>コミットして push（旦那様の GO が必要）。</li>
+  <li>結果に応じて Phase 5（調整、最大 2 回）へ。既知の課題は検索の外れ 3 問（F04・F09・F10）。</li>
+</ol>
+
+<p><strong>確定済みの前提（集計前に旦那様が決定、2026-09-20）：</strong></p>
+<ul>
+  <li>正確さの関門：内容 10 問で正答 7 問以上、その 30 回答で付け足し・書き換え 0、架空引用 0、trap 正しい拒否 9/10 以上。</li>
+  <li>付け足しの数え方：判定役の出力のままを正式値とし、「語の説明」の食い違いに当たる 4 回答を除いた数を参考として併記する。</li>
+</ul>
+
+<p><strong>学び：</strong></p>
+<ul>
+  <li>判定役（資料本文を読む）は一次採点の約 2 倍のトークンを使う。長い工程は 1 体ずつ、途中結果を書き足させると停止時の損失が小さい。</li>
+  <li>盲検は「条件名を伏せる」だけでは足りない。書式（引用番号）や言い回し（「提供された資料には」）も手がかりになる。前者は機械的に除去でき、後者は回答の中身なので残すほかなく、限界として記録した。</li>
+  <li>Phase 3 のコードを一般化するときは、旧データで再集計して指標の一致を確かめると、後方互換の破壊を早期に検出できる。</li>
+</ul>
+
+<h2>会話ログ</h2>
+
+<div class="dialog">
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#1</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">続きを再開して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#2</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">K1 の回答 43/96 に引用番号 [n] が計 93 個あり、盲検が崩れるため扱いの判断を依頼。採点用の写しからのみ除去する案を推奨。あわせて Open WebUI に空海以外の資料があるかを確認。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#3</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">「Open WebUI に、空海以外の資料（Knowledge）を登録していらっしゃいますか。」とは？振る舞いとか私の呼び方などは登録しているが</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#4</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">Knowledge はファイルを検索して渡す仕組みで、振る舞い・呼び方の設定とは別。ただしメモリ機能に登録していれば、埋め込みモデル入れ替えの影響を受ける可能性があると公開ソースで確認。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#5</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">「直し方（メモリに登録していた場合）メモリのどれか 1 件を開き、そのまま保存し直してください」何のことを言っているのかさっぱり分らん。システムプロンプト以外は特に設定していない。</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#6</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">システムプロンプトのみなら影響なし、対応不要。残る判断は引用番号の扱いのみ。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#7</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">進めて</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#8</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">引用番号の除去を TDD で実装（547 テスト合格）、点検は Approve。実データで K1 93 個・B1 0 個を除去。コードと束を封印コミットして push。ChatGPT への貼り付け（trap 束 60 回答、約 2 万字）を依頼。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#9</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">進めて</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#10</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">一次採点 4 体が完了し 192 回答を統合・封印。付け足し判定の 4 体は利用枠上限で全滅（出力なし）。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#11</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">トークンリミットで止まってしまった様だ。現状確認して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#12</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">失われたのは付け足し判定のみ（4 体とも書き出し前に停止）。ChatGPT の結果は貼付済みで 60 行 OK、一次採点と 59/60 一致。やり直しは 1 体ずつ・1 問ごとに書き足す方式を推奨。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#13</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">トークンが一気になくなって、トークン消費が読めなくなるので、4体同時はやらない方が良いと思う。進めて</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#14</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">判定役 4 体を 1 体ずつ実行して 192 回答完了（付け足しか書き換えあり 89 件）。集計スクリプトを B1 対 K1 に一般化（点検は Block → 全指摘反映、580 テスト合格）。集計前に 2 点を確認：関門の 2 数値を案のまま確定してよいか、判定役の「語の説明」の食い違いは判定どおり＋参考値の併記でよいか。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#15</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">それでいいが、会話を区切ろうと思う。会話を記録してコミット、pushして</div>
+  </div>
+
+</div>
+
+</body>
+</html>

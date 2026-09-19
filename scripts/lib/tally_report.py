@@ -147,12 +147,8 @@ def _ceiling(tallies: list[GraderTally]) -> list[str]:
             f"判定は正式な値（{tallies[0].name}）で行う。", "", *lines]
 
 
-PROPOSED = frozenset({"content_correct", "content_unfaithful"})  # 設計書「正確さの関門」で（案）のままの数値
-
-
-def _rule(metric: str, op: str, value: int) -> str:
-    text = f"{value} 問以上" if op == ">=" else str(value)
-    return f"{text}（案）" if metric in PROPOSED else text
+def _rule(op: str, value: int) -> str:
+    return f"{value} 問以上" if op == ">=" else str(value)
 
 
 def _gate(t: GraderTally) -> list[str]:
@@ -160,14 +156,14 @@ def _gate(t: GraderTally) -> list[str]:
         return []
     by_condition = {c: gate(t, c) for c in t.conditions}
     rows = [
-        [METRIC_NAMES[metric], _rule(metric, *rule),
+        [METRIC_NAMES[metric], _rule(*rule),
          *(f"{by_condition[c][i][1]} {'満たす' if by_condition[c][i][3] else '満たさない'}" for c in t.conditions)]
         for i, (metric, _, rule, _) in enumerate(by_condition[t.conditions[0]])
     ]
     return ["", "## 正確さの関門（Phase 5 の目標）", "",
             f"Phase 4 設計書「正確さの関門」。正式な値（{t.name}）で判定する。伝記の 5 問は関門に使わない。"
-            "内容 10 問の正答と付け足し・書き換えは必ず並べて見る。（案）の 2 つは、設計書が本番の前に確定させると"
-            "定めた数値だが、K1 の本番の前に確定した記録が無く、案のまま当てている。", "",
+            "内容 10 問の正答と付け足し・書き換えは必ず並べて見る。内容 10 問の 2 つの数値は、K1 の本番の前ではなく"
+            "集計の前に利用者が確定させた（設計書「確定の経緯」）。", "",
             *_table(["関門", "基準", *t.conditions], rows)]
 
 

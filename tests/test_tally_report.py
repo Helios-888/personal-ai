@@ -129,8 +129,8 @@ def test_faithfulness_section_lists_what_was_added_or_altered():
 def test_gate_section_shows_each_rule_for_each_condition():
     report = render_p4(generic.run(faithful=generic.faithful()))
     section = report.split("## 正確さの関門")[1].split("\n## ")[0]
-    assert "| 内容 10 問 正答（多数決） | 7 問以上（案） | 0/1 満たさない | 1/1 満たさない |" in section
-    assert "| 内容 10 問 付け足し・書き換えあり（回答単位） | 0（案） | 0/3 満たす | 0/3 満たす |" in section
+    assert "| 内容 10 問 正答（多数決） | 7 問以上 | 0/1 満たさない | 1/1 満たさない |" in section
+    assert "| 内容 10 問 付け足し・書き換えあり（回答単位） | 0 | 0/3 満たす | 0/3 満たす |" in section
     assert "| 架空引用（厳しい数え方） | 0 |" in section and "| trap 正しく退けた（多数決） | 9 問以上 |" in section
 
 
