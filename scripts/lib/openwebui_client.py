@@ -1,13 +1,24 @@
-"""Open WebUI v0.11.3 REST（/api/v1/models）の薄いラッパー。
+"""Open WebUI v0.11.3 REST の薄いラッパー。
 
 実機で確認した挙動：
 - GET  /api/v1/models/model?id=<id> … 無ければ 404、権限なしは 401
 - POST /api/v1/models/create        … ModelForm を本文で送る
 - POST /api/v1/models/model/update  … 対象は本文の id で指定（クエリではない）
+
+公開ソースで確認した挙動（Phase 4 の Knowledge。routers/files.py・routers/knowledge.py）：
+- POST /api/v1/files/?process=true&process_in_background=false … 埋め込みまで終えてから返る。meta.file_hash は送ったバイト列の SHA-256
+- POST /api/v1/knowledge/{id}/file/add … 処理済みのファイルを束に入れ、束の側でも埋め込む
+- GET  /api/v1/knowledge/{id}/files   … 管理者は limit で 1 ページの件数を広げられる（既定 30）
 """
+import re
 from typing import Optional
 
 import requests
+
+# 上の挙動と、Phase 4 設計書「着手時に判明したこと」11〜14 は、この版の公開ソースで確かめた。版が変われば確かめ直す
+EXPECTED_VERSION = "0.11.3"
+UPLOAD_TIMEOUT = 1800  # 秒。コンテナの CPU で埋め込むので、長い著作は数分かかる
+_ID = re.compile(r"[A-Za-z0-9-]+")  # パスに入れる id（Open WebUI の uuid）
 
 
 class OpenWebUIError(RuntimeError):
@@ -42,9 +53,49 @@ class OpenWebUIClient:
     def update_model(self, model_id: str, form: dict) -> dict:
         return self._post("/api/v1/models/model/update", {**form, "id": model_id})
 
-    def _post(self, path: str, body: dict) -> dict:
+    def create_knowledge(self, name: str, description: str) -> dict:
+        return self._post("/api/v1/knowledge/create", {"name": name, "description": description})
+
+    def upload_file(self, filename: str, content: bytes, content_type: str = "text/markdown") -> dict:
+        """ファイルを送り、Open WebUI が本文を取り出して埋め込み終えるまで待つ。"""
         response = self._session.post(
-            f"{self._base}{path}", headers=self._headers, json=body, timeout=self._timeout
+            f"{self._base}/api/v1/files/",
+            headers=self._headers,
+            params={"process": "true", "process_in_background": "false"},
+            files={"file": (filename, content, content_type)},
+            timeout=UPLOAD_TIMEOUT,
+        )
+        return self._checked(response)
+
+    def file_process_status(self, file_id: str) -> dict:
+        return self._get(f"/api/v1/files/{_checked_id(file_id)}/process/status")
+
+    def add_file_to_knowledge(self, knowledge_id: str, file_id: str) -> dict:
+        return self._post(f"/api/v1/knowledge/{_checked_id(knowledge_id)}/file/add", {"file_id": file_id},
+                          timeout=UPLOAD_TIMEOUT)
+
+    def get_knowledge_files(self, knowledge_id: str, limit: int = 100) -> dict:
+        return self._get(f"/api/v1/knowledge/{_checked_id(knowledge_id)}/files", params={"page": 1, "limit": limit})
+
+    def get_retrieval_config(self) -> dict:
+        return self._get("/api/v1/retrieval/config")
+
+    def get_embedding_config(self) -> dict:
+        return self._get("/api/v1/retrieval/embedding")
+
+    def get_task_config(self) -> dict:
+        return self._get("/api/v1/tasks/config")
+
+    def get_version(self) -> dict:
+        return self._get("/api/version")
+
+    def _get(self, path: str, params: Optional[dict] = None) -> dict:
+        response = self._session.get(f"{self._base}{path}", headers=self._headers, params=params, timeout=self._timeout)
+        return self._checked(response)
+
+    def _post(self, path: str, body: dict, timeout: Optional[float] = None) -> dict:
+        response = self._session.post(
+            f"{self._base}{path}", headers=self._headers, json=body, timeout=timeout or self._timeout
         )
         return self._checked(response)
 
@@ -63,3 +114,9 @@ class OpenWebUIClient:
         if not isinstance(payload, dict):
             raise OpenWebUIError(f"HTTP {response.status_code}: unexpected JSON payload: {str(payload)[:200]}")
         return payload
+
+
+def _checked_id(value: str) -> str:
+    if not isinstance(value, str) or not _ID.fullmatch(value):
+        raise ValueError(f"Open WebUI の id として使えない文字があります: {value!r}")
+    return value

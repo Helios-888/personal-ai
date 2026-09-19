@@ -18,6 +18,7 @@ import yaml  # noqa: E402
 
 from scripts.lib.agent import load_agent  # noqa: E402
 from scripts.lib.env import load_dotenv  # noqa: E402
+from scripts.lib.knowledge import knowledge_refs_for  # noqa: E402
 from scripts.lib.openwebui_client import OpenWebUIClient, OpenWebUIError  # noqa: E402
 from scripts.lib.prompt_builder import build_system_prompt, is_over_budget, load_parts  # noqa: E402
 from scripts.lib.sync import apply_plan, build_model_form, plan_sync  # noqa: E402
@@ -53,6 +54,7 @@ def run(
 
     try:
         agent = load_agent(root, args.agent)
+        knowledge_refs = knowledge_refs_for(root, args.agent, agent)  # 束の id は build_knowledge.py の記録から
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
@@ -73,7 +75,7 @@ def run(
         print(f"warning: system prompt exceeds budget ({tokens.count} > {budget} tokens)", file=sys.stderr)
 
     client = client_factory(env.get("OPENWEBUI_URL", DEFAULT_OPENWEBUI_URL), api_key)
-    plan = plan_sync(build_model_form(agent, system_prompt), client.get_model(agent["id"]))
+    plan = plan_sync(build_model_form(agent, system_prompt, knowledge_refs), client.get_model(agent["id"]))
     print(f"plan: {plan.action} {agent['id']}")
     if plan.changes:
         print("changed: " + ", ".join(plan.changes))

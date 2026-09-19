@@ -10,7 +10,7 @@ description / knowledge / filterIds、params 全体。サーバーが付け足�
 """
 import difflib
 from dataclasses import dataclass
-from typing import Literal, Optional, Protocol
+from typing import Literal, Optional, Protocol, Sequence
 
 Action = Literal["create", "update", "noop"]
 COMPARED_TOP_LEVEL_KEYS = ("name", "base_model_id")
@@ -31,8 +31,11 @@ class SyncPlan:
     changes: tuple[str, ...] = ()
 
 
-def build_model_form(agent: dict, system_prompt: str) -> dict:
-    """agent.yaml の内容を Open WebUI v0.11.3 の ModelForm の形にする。"""
+def build_model_form(agent: dict, system_prompt: str, knowledge_refs: Sequence[dict] = ()) -> dict:
+    """agent.yaml の内容を Open WebUI v0.11.3 の ModelForm の形にする。
+
+    meta.knowledge には、agent.yaml の束の定義ではなく、Open WebUI に作った束の参照（knowledge.model_refs）を入れる。
+    """
     params = dict(agent.get("params") or {})
     if "system" in params:
         raise ValueError("agent.yaml の params.system は指定できません（system_prompt.parts から組み立てます）")
@@ -42,7 +45,7 @@ def build_model_form(agent: dict, system_prompt: str) -> dict:
         "name": agent["name"],
         "meta": {
             "description": agent.get("description", ""),
-            "knowledge": list(agent.get("knowledge") or []),
+            "knowledge": [dict(ref) for ref in knowledge_refs],
             "filterIds": list(agent.get("filters") or []),
         },
         "params": {**params, "system": system_prompt},

@@ -225,3 +225,41 @@ def test_main_turns_openwebui_and_network_errors_into_one_line_and_exit_1(tmp_pa
         err = capsys.readouterr().err
         assert str(error) in err
         assert "Traceback" not in err
+
+
+# --- Knowledge（Phase 4） ---
+
+KNOWLEDGE = [{"name": "kukai-texts", "description": "d", "files": ["knowledge/kukai/primary/primary__x.md"]}]
+
+
+def run_with_knowledge(tmp_path, *, registered):
+    from scripts.lib.knowledge import Registered, render_registered
+
+    root = make_repo(tmp_path)
+    agent_dir = root / "agents" / "kukai"
+    (agent_dir / "agent.yaml").write_text(
+        yaml.safe_dump({**AGENT_YAML, "knowledge": KNOWLEDGE}, allow_unicode=True), encoding="utf-8"
+    )
+    if registered:
+        record = render_registered((Registered("kukai-texts", "kid-1"),))
+        (agent_dir / "knowledge-registered.yaml").write_text(record, encoding="utf-8")
+    client = RecordingClient(existing=None)
+    rc = run([], root=root, env={"OPENWEBUI_API_KEY": "k"}, client_factory=lambda u, k: client,
+             token_counter=lambda text, **_: TokenCount(3, True))
+    return rc, client
+
+
+def test_run_links_the_built_knowledge_by_its_registered_id(tmp_path):
+    rc, client = run_with_knowledge(tmp_path, registered=True)
+
+    assert rc == 0
+    action, form = client.calls[0]
+    assert form["meta"]["knowledge"] == [{"id": "kid-1", "name": "kukai-texts", "type": "collection"}]
+
+
+def test_run_refuses_a_knowledge_that_is_not_built_yet(tmp_path, capsys):
+    rc, client = run_with_knowledge(tmp_path, registered=False)
+
+    assert rc == 2
+    assert "build_knowledge.py" in capsys.readouterr().err
+    assert client.calls == []

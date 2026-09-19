@@ -196,6 +196,22 @@ def test_inconsistent_prompt_tokens_names_questions_whose_input_size_changed_bet
     assert inconsistent_prompt_tokens(records) == ["F02"]
 
 
+def test_inconsistent_prompt_tokens_compares_only_answers_that_got_the_same_passages():
+    # K1 は回ごとに検索される箇所が変わりうる（検索語の生成など）。箇所が違えば入力の大きさも違ってよい
+    question = EvalQuestion("F01", "factual", "q")
+
+    def with_passages(tokens, *texts):
+        return replace(result(prompt_tokens=tokens), sources=({"source": {"id": "k"}, "document": list(texts)},))
+
+    changed_passages = [AnswerRecord(1, question, with_passages(2500, "甲")),
+                        AnswerRecord(2, question, with_passages(2700, "乙"))]
+    same_passages = [AnswerRecord(1, question, with_passages(2500, "甲")),
+                     AnswerRecord(2, question, with_passages(2700, "甲"))]
+
+    assert inconsistent_prompt_tokens(changed_passages) == []
+    assert inconsistent_prompt_tokens(same_passages) == ["F01"]
+
+
 def test_inconsistent_prompt_tokens_ignores_answers_without_usage():
     question = EvalQuestion("F01", "factual", "q")
     records = [AnswerRecord(1, question, result(prompt_tokens=2100)), AnswerRecord(2, question, result(prompt_tokens=0))]
@@ -296,3 +312,43 @@ def test_render_eval_transcript_lists_the_retrieved_passages_under_the_answer():
     text = render_eval_transcript(HEADER, [AnswerRecord(1, question, replace(result("答"), sources=SOURCES))])
 
     assert "検索された箇所：primary__即身成仏義.md（T2428_.77.0382c22–T2428_.77.0383a03）" in text
+
+
+def test_retrieved_passages_are_named_by_the_file_not_by_the_knowledge():
+    # 束（Knowledge）を丸ごとモデルに付けると、source の name は束の名前になる。資料名は箇所ごとの metadata にある
+    question = load_eval_questions(FROZEN)[0]
+    sources = ({
+        "source": {"id": "kid-1", "name": "kukai-texts", "type": "collection"},
+        "document": ["T2428_.77.0382c22 若依", "T2431_.77.0409c26 遺告"],
+        "metadata": [{"name": "primary__即身成仏義.md"}, {"name": "later-attribution__御遺告.md"}],
+    },)
+
+    text = render_eval_transcript(HEADER, [AnswerRecord(1, question, replace(result("答"), sources=sources))])
+
+    assert ("検索された箇所：primary__即身成仏義.md（T2428_.77.0382c22–T2428_.77.0382c22）、"
+            "later-attribution__御遺告.md（T2431_.77.0409c26–T2431_.77.0409c26）") in text
+
+
+K1_HEADER = replace(
+    HEADER,
+    condition="K1",
+    knowledge=({"name": "kukai-texts", "id": "kid-1", "files": [{"name": "primary__即身成仏義.md", "sha256": "aa"}]},),
+    rag={"sha256": "cd" * 32, "RAG_EMBEDDING_MODEL": "BAAI/bge-m3", "TOP_K": 3, "CHUNK_SIZE": 1000, "CHUNK_OVERLAP": 100,
+         "ENABLE_RETRIEVAL_QUERY_GENERATION": False, "function_calling": "legacy"},
+)
+
+
+def test_header_json_keeps_the_knowledge_and_retrieval_settings_for_k1():
+    data = json.loads(header_json(K1_HEADER))
+    assert data["knowledge"][0]["files"] == [{"name": "primary__即身成仏義.md", "sha256": "aa"}]
+    assert data["rag"]["RAG_EMBEDDING_MODEL"] == "BAAI/bge-m3"
+    assert json.loads(header_json(HEADER))["knowledge"] == []  # B0・B1 は資料なし
+
+
+def test_render_eval_transcript_states_the_knowledge_and_retrieval_settings_for_k1():
+    text = render_eval_transcript(K1_HEADER, [])
+
+    assert "- Knowledge：kukai-texts（1 ファイル、id kid-1）" in text
+    assert ("- 検索の設定：埋め込み BAAI/bge-m3、上位 3 件、区切り 1000 字・重なり 100 字、検索語の生成 off、"
+            "function_calling legacy、SHA-256 " + "cd" * 32) in text
+    assert "Knowledge：" not in render_eval_transcript(HEADER, [])

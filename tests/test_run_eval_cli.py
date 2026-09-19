@@ -77,11 +77,12 @@ CLEAN = GitState(commit="c0ffee", dirty=())
 
 
 class RecordingChat:
-    def __init__(self, *, finish="stop", reasoning="", prompt_tokens=None):
+    def __init__(self, *, finish="stop", reasoning="", prompt_tokens=None, sources=None):
         self.calls = []
         self.finish = finish
         self.reasoning = reasoning
         self.prompt_tokens = prompt_tokens or (lambda call_number: 40)
+        self.sources = sources or (lambda call_number: ())  # 検索された箇所（K1）
 
     def __call__(self, base_url, model, *, system, user, temperature, max_tokens, endpoint, headers):
         self.calls.append(
@@ -103,6 +104,7 @@ class RecordingChat:
             completion_tokens=5,
             elapsed_seconds=1.5,
             prompt_tokens=self.prompt_tokens(len(self.calls)),
+            sources=self.sources(len(self.calls)),
         )
 
 
@@ -608,26 +610,168 @@ def test_git_state_is_checked_for_what_the_condition_depends_on(tmp_path, condit
 
 # --- K1（Phase 4：常時層＋Knowledge）と runs/ ---
 
-K1_AGENT = {**AGENT_YAML, "knowledge": ["kukai-primary"]}
+K_FILE = "knowledge/kukai/primary/primary__即身成仏義.md"
+K_TEXT = "T2428_.77.0381b16 即身成佛義\n"
+K_SHA = hashlib.sha256(K_TEXT.encode("utf-8")).hexdigest()
+K1_AGENT = {
+    **AGENT_YAML,
+    "params": {"temperature": 0.3, "function_calling": "legacy"},
+    "knowledge": [{"name": "kukai-texts", "description": "d", "files": [K_FILE]}],
+    "retrieval": {"embedding_model": "BAAI/bge-m3"},
+}
+K1_REFS = [{"id": "kid-1", "name": "kukai-texts", "type": "collection"}]
 RUNS = "evaluations/kukai/runs"
 PREFLIGHT = "evaluations/kukai/preflight"
+RECORD = "agents/kukai/knowledge-registered.yaml"
+# Open WebUI v0.11.3 が束の検索結果として返す形（source は束の項目、metadata に file_id）
+K1_SOURCES = ({
+    "source": {"id": "kid-1", "name": "kukai-texts", "type": "collection"},
+    "document": [K_TEXT],
+    "metadata": [{"file_id": "f1", "name": "primary__即身成仏義.md"}],
+},)
 
 
-def k1_openwebui() -> FakeOpenWebUI:
-    return FakeOpenWebUI(build_model_form(K1_AGENT, SYSTEM_PROMPT))
+def make_k1_repo(tmp_path: Path, agent: dict = K1_AGENT, *, built: bool = True, ingest=None) -> Path:
+    from scripts.lib.knowledge import Registered, RegisteredFile, ingest_settings, render_registered
+    from tests.openwebui_v0113 import EMBEDDING_CONFIG, RETRIEVAL_CONFIG
+
+    root = make_repo(tmp_path, agent=agent)
+    (root / K_FILE).parent.mkdir(parents=True)
+    (root / K_FILE).write_bytes(K_TEXT.encode("utf-8"))
+    if built:
+        made_with = ingest if ingest is not None else ingest_settings(RETRIEVAL_CONFIG, EMBEDDING_CONFIG)
+        entry = Registered("kukai-texts", "kid-1", (RegisteredFile(K_FILE, K_SHA, "f1"),), made_with)
+        (root / RECORD).write_text(render_registered((entry,)), encoding="utf-8")
+    return root
+
+
+class K1OpenWebUI(FakeOpenWebUI):
+    """Knowledge つきで登録され、v0.11.3 の形で設定を返す Open WebUI。既定ではリポジトリの定義どおり。"""
+
+    def __init__(self, registered=SAME_AS_REPO, *, agent=K1_AGENT, embedding_model="BAAI/bge-m3", file_hash=K_SHA,
+                 version="0.11.3", top_k_after_first_read=None):
+        super().__init__(build_model_form(agent, SYSTEM_PROMPT, K1_REFS) if registered is SAME_AS_REPO else registered)
+        self.embedding_model = embedding_model
+        self.file_hash = file_hash
+        self.version = version
+        self.top_k_after_first_read = top_k_after_first_read  # 問うている途中で設定が変わったことにする
+        self.retrieval_reads = 0
+
+    def get_version(self):
+        from tests.openwebui_v0113 import VERSION
+
+        return {**VERSION, "version": self.version}
+
+    def get_embedding_config(self):
+        from tests.openwebui_v0113 import EMBEDDING_CONFIG
+
+        return {**EMBEDDING_CONFIG, "RAG_EMBEDDING_MODEL": self.embedding_model}
+
+    def get_retrieval_config(self):
+        from tests.openwebui_v0113 import RETRIEVAL_CONFIG
+
+        self.retrieval_reads += 1
+        if self.retrieval_reads > 1 and self.top_k_after_first_read is not None:
+            return {**RETRIEVAL_CONFIG, "TOP_K": self.top_k_after_first_read}
+        return RETRIEVAL_CONFIG
+
+    def get_task_config(self):
+        from tests.openwebui_v0113 import TASK_CONFIG
+
+        return TASK_CONFIG
+
+    def get_knowledge_files(self, knowledge_id):
+        assert knowledge_id == "kid-1"
+        name = Path(K_FILE).name
+        return {"items": [{"id": "f1", "filename": name, "meta": {"name": name, "file_hash": self.file_hash}}], "total": 1}
+
+
+def k1_openwebui(**kwargs) -> FakeOpenWebUI:
+    return K1OpenWebUI(**kwargs)
+
+
+def k1_chat(sources=K1_SOURCES) -> RecordingChat:
+    return RecordingChat(sources=lambda call_number: sources)
 
 
 def test_k1_via_openwebui_asks_the_registered_model_that_carries_the_knowledge(tmp_path):
     # 検索は Open WebUI の中で起きる。登録済みのモデル（Knowledge つき）に問い、system は送らない
-    root = make_repo(tmp_path, agent=K1_AGENT)
+    root = make_k1_repo(tmp_path)
 
-    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, openwebui=k1_openwebui())
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, chat=k1_chat(),
+                             openwebui=k1_openwebui())
 
     assert rc == 0
     assert chat.calls
     assert all(call["model"] == "kukai-ai" and call["system"] is None for call in chat.calls)
     header = json.loads((root / PREFLIGHT / f"{TODAY}-K1" / "answers.jsonl").read_text(encoding="utf-8").splitlines()[0])
     assert header["condition"] == "K1"
+
+
+def test_k1_records_the_knowledge_files_and_the_retrieval_settings(tmp_path):
+    # Open WebUI の束の中身と検索の設定はリポジトリの外にある。問うた時点のものを記録の見出しに残す
+    root = make_k1_repo(tmp_path)
+
+    run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, chat=k1_chat(), openwebui=k1_openwebui())
+
+    header = json.loads((root / PREFLIGHT / f"{TODAY}-K1" / "answers.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert header["knowledge"] == [
+        {"name": "kukai-texts", "id": "kid-1",
+         "files": [{"name": "primary__即身成仏義.md", "sha256": K_SHA, "file_id": "f1"}]}
+    ]
+    assert header["rag"]["RAG_EMBEDDING_MODEL"] == "BAAI/bge-m3"
+    assert header["rag"]["function_calling"] == "legacy"
+    assert header["rag"]["OPENWEBUI_VERSION"] == "0.11.3"
+    assert "secret" not in json.dumps(header)
+    assert len(header["rag"]["sha256"]) == 64
+    transcript = (root / PREFLIGHT / f"{TODAY}-K1" / "transcript.md").read_text(encoding="utf-8")
+    assert "- Knowledge：kukai-texts（1 ファイル、id kid-1）" in transcript
+
+
+def test_b1_records_no_knowledge_and_no_retrieval_settings(tmp_path):
+    root = make_repo(tmp_path)
+
+    run_cli(["--condition", "B1"], root)
+
+    header, _ = read_answers(root)
+    assert header["knowledge"] == []
+    assert header["rag"] is None
+
+
+@pytest.mark.parametrize(
+    "setup, message",
+    [
+        (dict(openwebui=dict(registered=build_model_form(K1_AGENT, SYSTEM_PROMPT))), "sync_openwebui.py"),
+        (dict(built=False), "build_knowledge.py"),
+        (dict(openwebui=dict(embedding_model="sentence-transformers/all-MiniLM-L6-v2")), "all-MiniLM-L6-v2"),
+        (dict(openwebui=dict(file_hash="0" * 64)), "中身が違います"),
+        (dict(openwebui=dict(version="0.12.0")), "0.12.0"),
+        (dict(ingest={"CHUNK_SIZE": 500}), "CHUNK_SIZE"),  # 束を作ったときと区切り方が違う
+    ],
+    ids=["model-without-knowledge", "knowledge-not-built", "other-embedding-model", "knowledge-file-differs",
+         "other-version", "other-ingest-settings"],
+)
+def test_k1_refuses_when_open_webui_does_not_hold_what_the_repository_defines(tmp_path, capsys, setup, message):
+    root = make_k1_repo(tmp_path, built=setup.get("built", True), ingest=setup.get("ingest"))
+
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root,
+                             openwebui=k1_openwebui(**setup.get("openwebui", {})))
+
+    assert rc == 2
+    assert chat.calls == []
+    assert message in capsys.readouterr().err
+
+
+def test_k1_refuses_a_model_whose_function_calling_skips_the_knowledge_over_the_api(tmp_path, capsys):
+    # Open WebUI v0.11.3 は function_calling が legacy でないと、API から問うたときにモデルの Knowledge を検索しない
+    agent = {**K1_AGENT, "params": {"temperature": 0.3}}
+    root = make_k1_repo(tmp_path, agent=agent)
+
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, openwebui=k1_openwebui(agent=agent))
+
+    assert rc == 2
+    assert chat.calls == []
+    assert "function_calling" in capsys.readouterr().err
 
 
 def test_k1_refuses_an_agent_without_knowledge(tmp_path, capsys):
@@ -641,7 +785,7 @@ def test_k1_refuses_an_agent_without_knowledge(tmp_path, capsys):
 
 
 def test_k1_refuses_the_llama_swap_route_that_has_no_retrieval(tmp_path, capsys):
-    root = make_repo(tmp_path, agent=K1_AGENT)
+    root = make_k1_repo(tmp_path)
 
     rc, chat, _, _ = run_cli(["--condition", "K1", "--route", "llama-swap", "--out-dir", PREFLIGHT], root)
 
@@ -650,21 +794,12 @@ def test_k1_refuses_the_llama_swap_route_that_has_no_retrieval(tmp_path, capsys)
     assert "openwebui" in capsys.readouterr().err
 
 
-def test_k1_refuses_when_the_registered_model_lacks_the_knowledge(tmp_path, capsys):
-    root = make_repo(tmp_path, agent=K1_AGENT)
-
-    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root)  # 登録は Knowledge なしのまま
-
-    assert rc == 2
-    assert chat.calls == []
-    assert "sync_openwebui.py" in capsys.readouterr().err
-
-
 def test_k1_also_tracks_the_knowledge_files(tmp_path):
-    root = make_repo(tmp_path, agent=K1_AGENT)
+    root = make_k1_repo(tmp_path)
     git_calls = []
 
-    run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, openwebui=k1_openwebui(), git_calls=git_calls)
+    run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, chat=k1_chat(), openwebui=k1_openwebui(),
+            git_calls=git_calls)
 
     assert git_calls == [
         (
@@ -676,6 +811,7 @@ def test_k1_also_tracks_the_knowledge_files(tmp_path):
                 "agents/kukai/a.md",
                 "agents/kukai/b.md",
                 "knowledge",
+                RECORD,  # 束の id はこのファイルにしか無い
             ],
         )
     ]
@@ -711,7 +847,7 @@ def test_runs_requires_committed_definitions_and_code(tmp_path, capsys, out):
 
 
 def test_k1_is_not_saved_under_the_no_rag_baseline(tmp_path, capsys):
-    root = make_repo(tmp_path, agent=K1_AGENT)
+    root = make_k1_repo(tmp_path)
 
     rc, chat, _, _ = run_cli(["--condition", "K1"], root, openwebui=k1_openwebui())
 
@@ -721,15 +857,52 @@ def test_k1_is_not_saved_under_the_no_rag_baseline(tmp_path, capsys):
 
 
 @pytest.mark.parametrize("out", [RUNS, RUNS + "/phase4"])
-def test_k1_is_not_saved_under_runs_until_retrieval_is_recorded(tmp_path, capsys, out):
-    # 付け足し・書き換えの判定には、回答ごとに検索された箇所が要る（faithfulness.yaml）。記録の仕組みは手順 5 で作る
-    root = make_repo(tmp_path, agent=K1_AGENT)
+def test_k1_is_saved_under_runs_once_the_retrieval_is_recorded(tmp_path, out):
+    # 回答ごとの検索箇所（answers.jsonl の sources）と、束の中身・検索の設定（見出し）が残るようになったので runs/ に取れる
+    root = make_k1_repo(tmp_path)
 
-    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", out], root, openwebui=k1_openwebui())
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", out], root, chat=k1_chat(), openwebui=k1_openwebui())
 
-    assert rc == 2
-    assert chat.calls == []
-    assert "検索された箇所" in capsys.readouterr().err
+    assert rc == 0
+    records = [json.loads(line) for line in
+               (root / out / f"{TODAY}-K1" / "answers.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert records[-1]["status"] == "complete"
+    assert all(r["sources"] == list(K1_SOURCES) for r in records if r["record"] == "answer")
+
+
+@pytest.mark.parametrize(
+    "sources, message",
+    [((), "検索された箇所がありません"),
+     (({**K1_SOURCES[0], "metadata": [{"file_id": "f-old"}]},), "f-old")],
+    ids=["nothing-retrieved", "stale-file"],
+)
+def test_k1_stops_as_soon_as_an_answer_was_not_retrieved_from_the_checked_knowledge(tmp_path, sources, message):
+    # 空振りした K1 を「照合済み」のまま完走させない。記録は中断として閉じ、採点の束に入らない
+    root = make_k1_repo(tmp_path)
+
+    with pytest.raises(ValueError, match=message):
+        run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, chat=k1_chat(sources),
+                openwebui=k1_openwebui())
+
+    folder = root / PREFLIGHT / f"{TODAY}-K1"
+    records = [json.loads(line) for line in (folder / "answers.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [r["record"] for r in records] == ["header", "answer", "end"]  # 問題の回答も残す
+    assert records[-1]["status"] == "interrupted"
+    assert message in (folder / "transcript.md").read_text(encoding="utf-8")
+
+
+def test_k1_is_not_complete_when_the_settings_changed_while_asking(tmp_path):
+    # 問い終えたら設定と束を撮り直す。違えば、見出しの設定で取った答えとは言えない
+    root = make_k1_repo(tmp_path)
+
+    with pytest.raises(ValueError, match="変わりました"):
+        run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, chat=k1_chat(),
+                openwebui=k1_openwebui(top_k_after_first_read=5))
+
+    records = [json.loads(line) for line in
+               (root / PREFLIGHT / f"{TODAY}-K1" / "answers.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert records[-1]["status"] == "interrupted"
+    assert len([r for r in records if r["record"] == "answer"]) == 6
 
 
 def test_openwebui_route_refuses_a_system_prompt_with_template_variables(tmp_path, capsys):

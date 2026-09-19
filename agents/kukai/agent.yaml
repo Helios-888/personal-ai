@@ -16,6 +16,26 @@ system_prompt:
 
 params:
   temperature: 0.7
+  function_calling: legacy            # 問いごとに Knowledge を検索する。native だと API から問うたとき検索されない（Phase 4 設計書）
 
-knowledge: []                         # Phase 4 で Knowledge 名を列挙（例: kukai-primary）
+# Open WebUI の Knowledge（資料の束）。scripts/build_knowledge.py が作り、id と指紋を knowledge-registered.yaml に書く。
+# 束は 1 つにする。区分ごとに束を分けると、束ごとに上位 3 箇所が渡され、御遺告（1 点だけの束）がどの問いにも 3 箇所入る。
+# 区分はファイル名の頭（primary__・later-attribution__）で回答に伝わる（rules.md 規則 4）
+knowledge:
+  - name: kukai-texts
+    description: 空海の著作 8 点（primary）と、後世に空海の名で伝えられた御遺告（later-attribution）。SAT 大蔵経テキストデータベースから取得し、行 ID つき
+    files:
+      - knowledge/kukai/primary/primary__御請来目録.md
+      - knowledge/kukai/primary/primary__般若心経秘鍵.md
+      - knowledge/kukai/primary/primary__秘密曼荼羅十住心論.md
+      - knowledge/kukai/primary/primary__秘蔵宝鑰.md
+      - knowledge/kukai/primary/primary__弁顕密二教論.md
+      - knowledge/kukai/primary/primary__即身成仏義.md
+      - knowledge/kukai/primary/primary__声字実相義.md
+      - knowledge/kukai/primary/primary__吽字義.md
+      - knowledge/kukai/later-attribution/later-attribution__御遺告.md
+
+retrieval:                            # Knowledge を入れる前と、評価で問う前に、Open WebUI の設定がこれと同じかを確かめる
+  embedding_model: BAAI/bge-m3        # evaluations/kukai/preflight/2026-09-19-embedding/judgment.md で選んだ
+
 filters: []                           # Filter Function の id（必要時）

@@ -5,7 +5,10 @@
 条件（--condition）:
   B0 … 素のモデル。基底モデルに 1 文のシステムプロンプト（B0_SYSTEM_PROMPT）だけを付けて問う
   B1 … 常時層のみ。agent.yaml の parts から組んだシステムプロンプトで、Knowledge なし
-  K1 … 常時層＋Knowledge（Phase 4）。検索は Open WebUI の中で起きるので、経路は openwebui に限る
+  K1 … 常時層＋Knowledge（Phase 4）。検索は Open WebUI の中で起きるので、経路は openwebui に限る。
+       問う前に、Open WebUI の束の中身がリポジトリのファイルと同じか、埋め込みモデルが agent.yaml どおりか、
+       モデルの function_calling が legacy か（それ以外だと API からは検索されない）を確かめ、束の中身と検索の設定を
+       記録の見出しに残す
 経路（--route）:
   openwebui  … Open WebUI の /api/chat/completions（既定。Phase 4 と同じ経路）。
                B1・K1 は登録済みのカスタムモデル（kukai-ai）に問い、システムプロンプトは送らない
@@ -55,9 +58,26 @@ from scripts.lib.evaluation import (  # noqa: E402
 )
 from scripts.lib.freeze import read_frozen_text  # noqa: E402
 from scripts.lib.git_state import GitState, git_state  # noqa: E402
+from scripts.lib.knowledge import (  # noqa: E402
+    Registered,
+    compare,
+    expected_embedding_model,
+    find_registered,
+    header_entry,
+    ingest_differences,
+    ingest_settings,
+    local_digests,
+    model_refs,
+    parse_specs,
+    read_registered,
+    registered_path,
+    retrieval_problem,
+    server_files,
+)
 from scripts.lib.llm_client import DEFAULT_ENDPOINT, ChatResult, chat_completion  # noqa: E402
-from scripts.lib.openwebui_client import OpenWebUIClient, OpenWebUIError  # noqa: E402
+from scripts.lib.openwebui_client import EXPECTED_VERSION, OpenWebUIClient, OpenWebUIError  # noqa: E402
 from scripts.lib.prompt_builder import build_system_prompt, load_parts, resolve_inside  # noqa: E402
+from scripts.lib.rag_settings import rag_snapshot  # noqa: E402
 from scripts.lib.sync import build_model_form, changed_fields  # noqa: E402
 from scripts.lib.tokens import TokenCount, count_tokens  # noqa: E402
 
@@ -72,6 +92,9 @@ DEFAULT_QUESTIONS = "evaluations/kukai/questions.yaml"
 DEFAULT_OUT_DIR = "evaluations/kukai/baseline"
 GUARDED_OUT_DIRS = (DEFAULT_OUT_DIR, "evaluations/kukai/runs")  # 採点に使う記録の置き場（Phase 4 設計書「着手時に判明したこと」3）
 KNOWLEDGE_DIR = "knowledge"  # K1 が検索する資料の元。未コミットなら採点に使う記録にしない
+# Open WebUI v0.11.3 は、モデルの function_calling が legacy のときだけ、API から問うたときにモデルの Knowledge を検索する
+# （utils/middleware.py。native では UI の会話にだけ検索の道具を渡し、API の呼び出しには何も足さない）
+RETRIEVAL_FUNCTION_CALLING = "legacy"
 CODE_DIR = "scripts"  # 記録を作ったコード。未コミットなら基準値にしない
 DEFAULT_OPENWEBUI_URL = "http://localhost:3000"
 DEFAULT_LLAMA_SWAP_URL = "http://localhost:8080"
@@ -83,6 +106,10 @@ ANSWERS_FILE = "answers.jsonl"
 TRANSCRIPT_FILE = "transcript.md"
 INTERRUPTED_EXIT_CODE = 130
 INPUT_ERRORS = (ValueError, OSError, yaml.YAMLError)  # 送る前に分かる不備はすべて終了コード 2
+
+
+class RetrievalFailed(ValueError):
+    """K1 の回答が、照合した束から検索されていない。記録を中断として閉じる（採点の束に入らない）。"""
 
 
 @dataclass(frozen=True)
@@ -106,6 +133,9 @@ class EvalSetup:
     temperature: float
     git: GitState
     out_dir: Path
+    knowledge: tuple = ()  # K1：照合を通った束の中身（記録の見出しに残す）
+    rag: Optional[dict] = None  # K1：検索の設定（記録の見出しに残す）
+    recheck: Optional[Callable[[], tuple]] = None  # K1：問い終えたときに束の中身と検索の設定を撮り直す
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -189,13 +219,19 @@ def prepare(
     system_prompt = B0_SYSTEM_PROMPT if args.condition == "B0" else build_system_prompt(load_parts(root, parts))
 
     tracked = [args.agent, args.questions, CODE_DIR, *(parts if args.condition != "B0" else [])]
-    git = git_state(root, [*tracked, *([KNOWLEDGE_DIR] if args.condition == "K1" else [])])
+    knowledge_tracked = [KNOWLEDGE_DIR, registered_path(args.agent)]  # 束の id は登録の記録にしか無い
+    git = git_state(root, [*tracked, *(knowledge_tracked if args.condition == "K1" else [])])
     if guarded and git.dirty:
         raise ValueError(
             f"{guarded} の記録は、定義とコードをコミットしてから取ります。未コミットの変更: " + "、".join(git.dirty)
         )
+    registered = read_registered(root, args.agent) if args.condition == "K1" else ()
+    knowledge_refs = model_refs(parse_specs(agent.get("knowledge")), registered) if args.condition == "K1" else []
+    target, client = choose_target(args.condition, args.route, agent, system_prompt, env, client_factory, knowledge_refs)
+    recheck = (lambda: check_retrieval(client, root, agent, registered)) if args.condition == "K1" else None
+    knowledge, rag = recheck() if recheck else ((), None)
     return EvalSetup(
-        target=choose_target(args.condition, args.route, agent, system_prompt, env, client_factory),
+        target=target,
         system_prompt=system_prompt,
         base_model=agent["base_model_id"],
         questions=questions,
@@ -203,6 +239,9 @@ def prepare(
         temperature=float((agent.get("params") or {}).get("temperature", DEFAULT_TEMPERATURE)),
         git=git,
         out_dir=out_dir,
+        knowledge=knowledge,
+        rag=rag,
+        recheck=recheck,
     )
 
 
@@ -226,9 +265,6 @@ def check_condition(condition: str, route: str, agent: dict, guarded: Optional[s
         raise ValueError(f"K1 は Open WebUI の検索を通す条件なので、経路は {ROUTE_OPENWEBUI} に限ります")
     if condition == "K1" and guarded == "baseline/":
         raise ValueError("K1 は資料ありの条件なので、RAG 無しの基準値の置き場 baseline/ には置きません（runs/ に置く）")
-    if condition == "K1" and guarded == "runs/":
-        # 付け足し・書き換えの判定（faithfulness.yaml）には、回答ごとに検索された箇所が要る。記録の仕組みは手順 5 で作る
-        raise ValueError("K1 の記録には回答ごとに検索された箇所を残す必要があります。その仕組みができるまで runs/ には取りません")
 
 
 def choose_target(
@@ -238,10 +274,12 @@ def choose_target(
     system_prompt: str,
     env: dict,
     client_factory: Callable[[str, str], object],
-) -> Target:
+    knowledge_refs: list[dict],
+) -> tuple[Target, Optional[object]]:
+    """送信先と、登録を確かめた Open WebUI のクライアント（B1・K1 の openwebui 経路のときだけ）。"""
     if route == ROUTE_LLAMA_SWAP:
         base_url = env.get("LLAMA_SWAP_URL", DEFAULT_LLAMA_SWAP_URL)
-        return Target(base_url, DEFAULT_ENDPOINT, agent["base_model_id"], None, system_prompt)
+        return Target(base_url, DEFAULT_ENDPOINT, agent["base_model_id"], None, system_prompt), None
 
     if TEMPLATE_MARK in system_prompt:
         raise ValueError(
@@ -254,12 +292,59 @@ def choose_target(
     base_url = env.get("OPENWEBUI_URL", DEFAULT_OPENWEBUI_URL)
     headers = {"Authorization": f"Bearer {api_key}"}
     if condition == "B0":
-        return Target(base_url, OPENWEBUI_ENDPOINT, agent["base_model_id"], headers, system_prompt)
-    check_registration(client_factory(base_url, api_key), agent, system_prompt)
-    return Target(base_url, OPENWEBUI_ENDPOINT, agent["id"], headers, None)
+        return Target(base_url, OPENWEBUI_ENDPOINT, agent["base_model_id"], headers, system_prompt), None
+    client = client_factory(base_url, api_key)
+    check_registration(client, agent, system_prompt, knowledge_refs)
+    return Target(base_url, OPENWEBUI_ENDPOINT, agent["id"], headers, None), client
 
 
-def check_registration(client, agent: dict, system_prompt: str) -> None:
+def check_retrieval(client, root: Path, agent: dict, registered: tuple[Registered, ...]) -> tuple[tuple, dict]:
+    """K1 を問う前に、検索が定義どおりに働く状態かを確かめ、記録の見出しに残す束の中身と検索の設定を返す。
+
+    束の id は、登録の照合（choose_target）に使ったのと同じ記録（registered）から取る。
+    """
+    version = client.get_version().get("version")
+    if version != EXPECTED_VERSION:
+        raise ValueError(
+            f"Open WebUI の版は {version} です（検索のされ方を確かめたのは {EXPECTED_VERSION}）。"
+            "公開ソースで確かめ直してから、EXPECTED_VERSION を改めてください"
+        )
+    function_calling = (agent.get("params") or {}).get("function_calling")
+    if function_calling != RETRIEVAL_FUNCTION_CALLING:
+        raise ValueError(
+            f"K1 は agent.yaml の params.function_calling を {RETRIEVAL_FUNCTION_CALLING} にします（今は {function_calling}）。"
+            "Open WebUI v0.11.3 は、それ以外だと API から問うたときにモデルの Knowledge を検索しません"
+        )
+    expected = expected_embedding_model(agent)
+    embedding = client.get_embedding_config()
+    if embedding.get("RAG_EMBEDDING_MODEL") != expected:
+        raise ValueError(
+            f"Open WebUI の埋め込みモデルは {embedding.get('RAG_EMBEDDING_MODEL')} です（agent.yaml は {expected}）。"
+            "束はその埋め込みで作られていないおそれがあります"
+        )
+    retrieval = client.get_retrieval_config()
+    ingest = ingest_settings(retrieval, embedding)
+    specs = parse_specs(agent.get("knowledge"))
+    digests = local_digests(root, specs)
+    entries = []
+    for spec in specs:
+        found = find_registered(registered, spec.name)  # 無ければ model_refs が先に止めている
+        differences = ingest_differences(found.ingest, ingest)
+        if differences:
+            raise ValueError(
+                f"knowledge {spec.name} を作ったときと取り込みの設定が違います（" + "、".join(differences) + "）。"
+                "束の箇所は作ったときの設定のままなので、記録の設定と食い違います"
+            )
+        on_server = server_files(client.get_knowledge_files(found.id))
+        comparison = compare(spec, digests, on_server)
+        if not comparison.same:
+            raise ValueError("。".join(comparison.problems(spec.name)) + "。scripts/build_knowledge.py --dry-run で確かめてください")
+        entries.append(header_entry(spec, found.id, digests, on_server))
+    rag = rag_snapshot(retrieval, embedding, client.get_task_config(), function_calling, version)
+    return tuple(entries), rag
+
+
+def check_registration(client, agent: dict, system_prompt: str, knowledge_refs: list[dict]) -> None:
     """B1・K1 を Open WebUI 経由で問う前に、登録済みのモデルがリポジトリの定義と同じであることを確かめる。
 
     システムプロンプトは Open WebUI が登録済みのものを足すため、ここが食い違うと記録の指紋と実際に送られたものがずれる。
@@ -267,7 +352,7 @@ def check_registration(client, agent: dict, system_prompt: str) -> None:
     existing = client.get_model(agent["id"])
     if existing is None:
         raise ValueError(f"Open WebUI に {agent['id']} が登録されていません。先に scripts/sync_openwebui.py で登録してください")
-    changes = changed_fields(build_model_form(agent, system_prompt), existing)
+    changes = changed_fields(build_model_form(agent, system_prompt, knowledge_refs), existing)
     if changes:
         raise ValueError(
             f"Open WebUI の {agent['id']} がリポジトリの定義と食い違います（{', '.join(changes)}）。"
@@ -295,6 +380,8 @@ def build_header(args: argparse.Namespace, setup: EvalSetup, tokens: TokenCount,
         question_ids=tuple(q.id for q in setup.questions),
         git_commit=setup.git.commit,
         git_dirty=setup.git.dirty,
+        knowledge=setup.knowledge,
+        rag=setup.rag,
     )
 
 
@@ -331,9 +418,16 @@ def ask_all(
                 f"{len(result.content.strip())} 字、入力 {result.prompt_tokens}、finish={result.finish_reason}",
                 flush=True,  # tmux や nohup の下でも進み具合がすぐ見えるように
             )
-    except BaseException:
+            problem = retrieval_problem(result.sources, setup.knowledge) if setup.knowledge else None
+            if problem:
+                raise RetrievalFailed(f"{question.id} {repeat} 回目：{problem}")
+        if setup.recheck is not None and setup.recheck() != (setup.knowledge, setup.rag):
+            raise RetrievalFailed("問うている間に、束の中身か検索の設定が変わりました（見出しの設定で取った答えとは言えません）")
+    except BaseException as error:
         append_line(answers_path, end_json("interrupted", len(records), inconsistent_prompt_tokens(records)))
         note = f"途中で中断（{len(records)}/{len(calls)} 回答まで）"
+        if isinstance(error, RetrievalFailed):
+            note += f"：{error}"
         save_new(setup.out_dir / TRANSCRIPT_FILE, render_eval_transcript(replace(header, note=note), records))
         print(f"saved (partial): {display(setup.out_dir, root)}", file=sys.stderr)
         raise

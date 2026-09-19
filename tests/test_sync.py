@@ -165,3 +165,14 @@ def test_plan_lists_changed_fields_so_a_name_only_update_is_explained():
 
     assert plan.changes == ("name",)
     assert plan.diff == ""
+
+
+def test_build_model_form_links_the_given_knowledge_refs_not_the_agent_yaml_definition():
+    # agent.yaml の knowledge は束の定義（名前とファイル）。モデルに紐付けるのは Open WebUI が付けた id
+    refs = [{"id": "kid-1", "name": "kukai-texts", "type": "collection"}]
+    agent = {**AGENT, "knowledge": [{"name": "kukai-texts", "files": ["knowledge/kukai/primary/primary__x.md"]}]}
+
+    form = build_model_form(agent, "S", refs)
+
+    assert form["meta"]["knowledge"] == refs
+    assert build_model_form(agent, "S")["meta"]["knowledge"] == []

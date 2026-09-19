@@ -48,6 +48,8 @@ class RunHeader:
     git_commit: str
     git_dirty: tuple[str, ...]  # 定義とコードの未コミットの変更。空でなければ指紋は履歴のどの版とも一致しない
     note: str = ""  # 途中で中断したときなどの注記
+    knowledge: tuple = ()  # K1：Open WebUI の束の名前・id と、入っているファイルの名前・指紋（リポジトリと照合済み）
+    rag: Optional[dict] = None  # K1：検索の設定（rag_settings.rag_snapshot）。Open WebUI 全体の設定なので記録に残す
 
 
 @dataclass(frozen=True)
@@ -138,13 +140,18 @@ def count_truncated(records: list[AnswerRecord]) -> int:
 def inconsistent_prompt_tokens(records: list[AnswerRecord]) -> list[str]:
     """同じ問いなのに入力トークン数が回ごとに違う問いの id。違えば途中でシステムプロンプトか経路が変わった。
 
-    usage を返さない応答（0）は比べない。
+    usage を返さない応答（0）は比べない。K1 は回ごとに検索される箇所が変わりうるので、同じ箇所が検索された回どうしだけを比べる。
     """
-    seen: dict[str, set[int]] = {}
+    seen: dict[tuple, set[int]] = {}
     for record in records:
         if record.result.prompt_tokens:
-            seen = {**seen, record.question.id: seen.get(record.question.id, set()) | {record.result.prompt_tokens}}
-    return [question_id for question_id, sizes in seen.items() if len(sizes) > 1]
+            key = (record.question.id, _passages_key(record.result.sources))
+            seen = {**seen, key: seen.get(key, set()) | {record.result.prompt_tokens}}
+    return list(dict.fromkeys(question_id for (question_id, _), sizes in seen.items() if len(sizes) > 1))
+
+
+def _passages_key(sources) -> tuple:
+    return tuple(document for source in sources for document in (source.get("document") or []))
 
 
 def render_eval_transcript(header: RunHeader, records: list[AnswerRecord]) -> str:
@@ -174,9 +181,23 @@ def _header_lines(header: RunHeader, records: list[AnswerRecord]) -> list[str]:
         f"- 定義：{header.agent}",
         f"- Git：{header.git_commit}{_dirty_text(header.git_dirty)}",
         f"- 回答 {len(records)} 件、出力枠切れ（finish=length）{count_truncated(records)}/{len(records)}",
+        *_retrieval_lines(header),
     ]
     if header.note:
         lines.extend(["", header.note])
+    return lines
+
+
+def _retrieval_lines(header: RunHeader) -> list[str]:
+    lines = [f"- Knowledge：{k['name']}（{len(k['files'])} ファイル、id {k['id']}）" for k in header.knowledge]
+    if header.rag:
+        rag = header.rag
+        generation = "on" if rag.get("ENABLE_RETRIEVAL_QUERY_GENERATION") else "off"
+        lines.append(
+            f"- 検索の設定：埋め込み {rag.get('RAG_EMBEDDING_MODEL')}、上位 {rag.get('TOP_K')} 件、"
+            f"区切り {rag.get('CHUNK_SIZE')} 字・重なり {rag.get('CHUNK_OVERLAP')} 字、検索語の生成 {generation}、"
+            f"function_calling {rag.get('function_calling')}、SHA-256 {rag.get('sha256')}"
+        )
     return lines
 
 
@@ -217,11 +238,17 @@ def _answer_section(record: AnswerRecord) -> list[str]:
 
 
 def _source_ranges(sources) -> list[str]:
-    """検索された箇所を「資料名（最初の行 ID–最後の行 ID）」で並べる。本文は answers.jsonl に残る。"""
+    """検索された箇所を「資料名（最初の行 ID–最後の行 ID）」で並べる。本文は answers.jsonl に残る。
+
+    資料名は箇所ごとの metadata の name（ファイル名）。束を丸ごと付けると source の name は束の名前になるため。
+    """
     ranges = []
     for source in sources:
-        name = (source.get("source") or {}).get("name") or "（名前なし）"
-        for document in source.get("document") or []:
+        fallback = (source.get("source") or {}).get("name") or "（名前なし）"
+        metadatas = source.get("metadata") or []
+        for index, document in enumerate(source.get("document") or []):
+            meta = metadatas[index] if index < len(metadatas) and isinstance(metadatas[index], dict) else {}
+            name = meta.get("name") or fallback
             ids = re.findall(LINE_ID, document)
             ranges.append(f"{name}（{ids[0]}–{ids[-1]}）" if ids else name)
     return ranges
