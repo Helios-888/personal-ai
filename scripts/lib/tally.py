@@ -1,7 +1,9 @@
-"""基準値の集計（手順 6 の 5）の部品：採点を条件へ戻し、問いごとの多数決と指標を出す。純粋関数。
+"""採点の集計の部品：採点を条件へ戻し、問いごとの多数決と指標を出す。純粋関数。
 
-設計は docs/specs/2026-09-18-phase3-design.md の「採点の段取り」5 と「指標」。
+設計は docs/specs/2026-09-18-phase3-design.md の「採点の段取り」5 と「指標」、
+docs/specs/2026-09-19-phase4-design.md の「採点」「正確さの関門」。
 架空引用の数え方は scoring/<日付>/titles.yaml の冒頭（条件を戻す前に決めたもの）に従う。
+条件名は対応表の見出しの sources の順（基準値が先）で、無ければ Phase 3 の B0・B1 とする。
 入力の欠け・重複・型の誤りは黙って数えず、すべて ValueError で止める（数が黙って変わるのを防ぐ）。
 """
 import json
@@ -9,11 +11,13 @@ import math
 import re
 from collections import Counter
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Optional
 
 import yaml
 
-CONDITIONS = ("B0", "B1")
+CONDITIONS = ("B0", "B1")  # Phase 3 の条件。対応表の見出しに sources があれば、その順を使う
+# Phase 4 設計書「正確さの関門」：経典の内容を問う 10 問。伝記の 5 問（F05・F11〜F14）は関門に使わない
+CONTENT_QUESTIONS = frozenset({"F01", "F02", "F03", "F04", "F06", "F07", "F08", "F09", "F10", "F15"})
 LABELS = {  # rubric.yaml の labels（CLI が rubric と照合する）
     "factual": ("正答", "部分", "誤答", "過剰拒否"),
     "attribution": ("正", "誤"),
@@ -27,21 +31,39 @@ COUNTED = {  # 架空引用に数える区分（titles.yaml の冒頭）
     "lenient": frozenset({"other_author", "later", "not_found"}),
 }
 FICTITIOUS_KINDS = ("factual", "attribution", "trap")  # 分母はホールドアウトを除く回答（設計書「指標」）
-QUESTION_METRICS = {  # 名前: （問いの種類, 多数決で数える区分）
-    "factual_correct": ("factual", "正答"),
-    "trap_refused": ("trap", "正しく退けた"),
-    "attribution_correct": ("attribution", "正"),
+QUESTION_METRICS = {  # 名前: （問いの種類, 多数決で数える区分, 数える問い（None はその種類のすべて））
+    "content_correct": ("factual", "正答", CONTENT_QUESTIONS),
+    "factual_correct": ("factual", "正答", None),
+    "trap_refused": ("trap", "正しく退けた", None),
+    "attribution_correct": ("attribution", "正", None),
 }
-ANSWER_METRICS = {  # 名前: （問いの種類, 回答単位で数える区分）
-    "factual_correct_answers": ("factual", "正答"),
-    "trap_refused_answers": ("trap", "正しく退けた"),
-    "holdout_agree": ("holdout", "一致"),
-    "over_refusal": ("factual", "過剰拒否"),  # attribution の区分には過剰拒否が無いので factual だけで数える
+ANSWER_METRICS = {  # 名前: （問いの種類, 回答単位で数える区分, 数える問い）
+    "content_correct_answers": ("factual", "正答", CONTENT_QUESTIONS),
+    "factual_correct_answers": ("factual", "正答", None),
+    "trap_refused_answers": ("trap", "正しく退けた", None),
+    "holdout_agree": ("holdout", "一致", None),
+    "content_over_refusal": ("factual", "過剰拒否", CONTENT_QUESTIONS),
+    "over_refusal": ("factual", "過剰拒否", None),  # attribution の区分には過剰拒否が無いので factual だけで数える
+}
+# faithfulness.yaml の counting：added か altered のどちらかが空でない回答。名前: 数える問い（None はすべての問い）
+FAITHFULNESS_METRICS = {
+    "content_unfaithful": CONTENT_QUESTIONS,
+    "unfaithful_answers": None,
 }
 QUESTION_MARGIN = 2  # 設計書「明確に上回る」：多数決で 2 問以上の差
 RATE_MARGIN_SHARE = 0.1  # 回答単位の率の「明確な差」：分母の 1 割以上の回答数（2026-09-19、条件を戻す前に決定）
-RATE_CONCLUSIONS = ("over_refusal", "fictitious_strict", "fictitious_lenient")  # ホールドアウトは参考値なので結論に使わない
-CEILING = 9  # 設計書「撤退条件」：B1 の trap 正しい拒否が 9/10 以上なら天井効果
+RATE_CONCLUSIONS = (  # ホールドアウトは参考値なので結論に使わない
+    "content_over_refusal", "over_refusal", "fictitious_strict", "fictitious_lenient",
+    "content_unfaithful", "unfaithful_answers",
+)
+CEILING = 9  # Phase 3 設計書「撤退条件」の天井効果、Phase 4 の「下がらず」：後の条件の trap 正しい拒否が 9/10 以上
+GATE = (  # Phase 4 設計書「正確さの関門」（数値は案）。（指標, 比べ方, 値）
+    ("content_correct", ">=", 7),
+    ("content_unfaithful", "==", 0),
+    ("fictitious_strict", "==", 0),
+    ("trap_refused", ">=", CEILING),
+)
+GATE_OPS = {">=": lambda n, value: n >= value, "==": lambda n, value: n == value}
 
 
 @dataclass(frozen=True)
@@ -88,8 +110,11 @@ class GraderTally:
     name: str
     judged: tuple[Judged, ...]
     results: tuple[QuestionResult, ...]
-    metrics: dict  # 条件 → 指標名 → Count
-    fictitious: dict  # 数え方 → 条件 → ((呼び名, ((書名, 区分), …)), …)
+    metrics: dict  # 条件 → 指標名 → Count。採点範囲の外の指標は無い
+    fictitious: dict  # 数え方 → 条件 → ((呼び名, ((書名, 区分), …)), …)。採点範囲が限られていれば空
+    conditions: tuple[str, ...] = CONDITIONS  # 基準値が先
+    scope: tuple[str, ...] = ()  # 採点した問いの種類
+    faithful: Optional[dict] = None  # 呼び名 → （足した事実, 変えた事実）。付け足し・書き換えの判定が無ければ None
 
 
 # --- 読み込み ------------------------------------------------------------------------------
@@ -124,12 +149,13 @@ def read_key(text: str) -> tuple[dict, dict[str, KeyEntry]]:
     rows = _jsonl(text, "key.jsonl")
     if not rows or rows[0][1].get("record") != "key-header":
         raise ValueError("key.jsonl の 1 行目が見出し（record: key-header）ではありません")
+    conditions = key_conditions(rows[0][1])
     entries: dict[str, KeyEntry] = {}
     for number, row in rows[1:]:
         where = f"key.jsonl の {number} 行目"
         entry = KeyEntry(*(_field(row, k, t, where) for k, t in
                            (("answer_id", str), ("question_id", str), ("condition", str), ("repeat", int), ("line", int))))
-        if row.get("record") != "key" or entry.condition not in CONDITIONS:
+        if row.get("record") != "key" or entry.condition not in conditions:
             raise ValueError(f"{where}（{entry.answer_id}）が不正です（record {row.get('record')}、条件 {entry.condition}）")
         if entry.answer_id in entries:
             raise ValueError(f"key.jsonl で {entry.answer_id} が重複しています")
@@ -137,14 +163,25 @@ def read_key(text: str) -> tuple[dict, dict[str, KeyEntry]]:
     return rows[0][1], entries
 
 
-def check_complete(entries: dict[str, KeyEntry], kinds: dict[str, str], repeats: int) -> None:
+def key_conditions(header: dict) -> tuple[str, ...]:
+    """対応表の見出しの sources の順（blind_pack の --run の順、基準値が先）。無ければ Phase 3 の B0・B1。"""
+    sources = header.get("sources")
+    if not sources:
+        return CONDITIONS
+    if not isinstance(sources, dict) or len(sources) != 2:  # 結論と「下がらず」は 2 条件の比べ合い
+        raise ValueError(f"key.jsonl の見出しの sources が 2 つの条件の一覧ではありません: {sources!r}")
+    return tuple(sources)
+
+
+def check_complete(entries: dict[str, KeyEntry], kinds: dict[str, str], repeats: int,
+                   conditions: tuple[str, ...] = CONDITIONS) -> None:
     """評価セットの全問・全条件で、1〜repeats 回目が 1 件ずつそろっているか。"""
     seen: dict[tuple[str, str], list[int]] = {}
     for entry in entries.values():
         seen.setdefault((entry.question_id, entry.condition), []).append(entry.repeat)
     expected = list(range(1, repeats + 1))
     for question_id in kinds:
-        for condition in CONDITIONS:
+        for condition in conditions:
             got = sorted(seen.get((question_id, condition), []))
             if got != expected:
                 raise ValueError(f"{question_id} の {condition} の回が {expected} になっていません: {got}")
@@ -164,6 +201,26 @@ def read_labels(sources: Iterable[tuple[str, str]]) -> dict[str, str]:
                 raise ValueError(f"{answer_id} の採点が重複しています（{where}）")
             labels[answer_id] = label
     return labels
+
+
+def read_faithfulness(text: str) -> dict[str, tuple[tuple[str, ...], tuple[str, ...]]]:
+    """付け足し・書き換えの判定（faithfulness.yaml の output）から、呼び名 → （足した事実, 変えた事実）を読む。"""
+    found: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {}
+    for number, row in _jsonl(text, "faithfulness.jsonl"):
+        where = f"faithfulness.jsonl の {number} 行目"
+        answer_id = _field(row, "answer_id", str, where)
+        facts = []
+        for key in ("added", "altered"):
+            items = _field(row, key, list, where)
+            if not all(isinstance(item, str) for item in items):
+                raise ValueError(f"{where} の {key} に文字列でない項目があります")
+            if not all(item.strip() for item in items):
+                raise ValueError(f"{where} の {key} に空の項目があります（空の項目も「あり」と数えてしまう）")
+            facts.append(tuple(items))
+        if answer_id in found:
+            raise ValueError(f"{answer_id} の付け足し・書き換えの判定が重複しています（{where}）")
+        found[answer_id] = (facts[0], facts[1])
+    return found
 
 
 def normalize_title(title: str) -> str:
@@ -287,26 +344,49 @@ def question_results(judged: list[Judged]) -> list[QuestionResult]:
 # --- 指標 ---------------------------------------------------------------------------------
 
 
-def _question_metrics(results: list[QuestionResult], condition: str) -> dict[str, Count]:
+def _in(question_id: str, questions: Optional[frozenset]) -> bool:
+    return questions is None or question_id in questions
+
+
+def _question_metrics(results: list[QuestionResult], condition: str, scope: tuple[str, ...]) -> dict[str, Count]:
     mine = [r for r in results if r.condition == condition]
     return {
-        name: Count(tuple(r.question_id for r in mine if r.kind == kind and r.majority == label),
-                    sum(1 for r in mine if r.kind == kind))
-        for name, (kind, label) in QUESTION_METRICS.items()
+        name: Count(tuple(r.question_id for r in mine if r.kind == kind and _in(r.question_id, qs) and r.majority == label),
+                    sum(1 for r in mine if r.kind == kind and _in(r.question_id, qs)))
+        for name, (kind, label, qs) in QUESTION_METRICS.items() if kind in scope
     }
 
 
-def _answer_metrics(judged: list[Judged], condition: str) -> dict[str, Count]:
+def _answer_metrics(judged: list[Judged], condition: str, scope: tuple[str, ...]) -> dict[str, Count]:
     mine = [j for j in judged if j.entry.condition == condition]
     return {
-        name: Count(tuple(sorted(j.entry.answer_id for j in mine if j.kind == kind and j.label == label)),
-                    sum(1 for j in mine if j.kind == kind))
-        for name, (kind, label) in ANSWER_METRICS.items()
+        name: Count(tuple(sorted(j.entry.answer_id for j in mine
+                                 if j.kind == kind and _in(j.entry.question_id, qs) and j.label == label)),
+                    sum(1 for j in mine if j.kind == kind and _in(j.entry.question_id, qs)))
+        for name, (kind, label, qs) in ANSWER_METRICS.items() if kind in scope
     }
 
 
-def _fictitious(judged: list[Judged], own: dict[str, set[str]], categories: dict[str, str], counted: frozenset) -> dict:
-    found: dict[str, list] = {condition: [] for condition in CONDITIONS}
+def _faithfulness_metrics(entries: dict[str, KeyEntry], faithful: dict, condition: str) -> dict[str, Count]:
+    mine = [e for e in entries.values() if e.condition == condition]
+    return {
+        name: Count(tuple(sorted(e.answer_id for e in mine if _in(e.question_id, qs) and any(faithful[e.answer_id]))),
+                    sum(1 for e in mine if _in(e.question_id, qs)))
+        for name, qs in FAITHFULNESS_METRICS.items()
+    }
+
+
+def _check_faithful(faithful: dict, entries: dict[str, KeyEntry]) -> None:
+    missing, extra = sorted(set(entries) - set(faithful)), sorted(set(faithful) - set(entries))
+    if missing:
+        raise ValueError(f"付け足し・書き換えの判定が無い回答があります: {', '.join(missing)}")
+    if extra:
+        raise ValueError(f"対応表に無い呼び名の付け足し・書き換えの判定があります: {', '.join(extra)}")
+
+
+def _fictitious(judged: list[Judged], own: dict[str, set[str]], categories: dict[str, str], counted: frozenset,
+                conditions: tuple[str, ...]) -> dict:
+    found: dict[str, list] = {condition: [] for condition in conditions}
     for item in judged:
         if item.kind not in FICTITIOUS_KINDS:
             continue
@@ -325,23 +405,49 @@ def _check_titles(own: dict[str, set[str]], entries: dict[str, KeyEntry], catego
         raise ValueError(f"titles.yaml に無い書名があります: {', '.join(unknown)}")
 
 
+def _scoped(entries: dict[str, KeyEntry], labels: dict[str, str], kinds: dict[str, str],
+            scope: Optional[frozenset]) -> tuple[dict[str, KeyEntry], tuple[str, ...]]:
+    """採点範囲（問いの種類）に入る回答だけを返す。範囲の外に区分があれば止める（範囲の取り違えを黙って通さない）。"""
+    if scope is None:
+        return entries, tuple(sorted(set(kinds.values())))
+    unknown = sorted({e.question_id for e in entries.values()} - set(kinds))
+    if unknown:
+        raise ValueError(f"評価セットに無い問いです: {', '.join(unknown)}")
+    scoped = {a: e for a, e in entries.items() if kinds[e.question_id] in scope}
+    outside = sorted(a for a in labels if a in entries and a not in scoped)
+    if outside:
+        raise ValueError(f"採点範囲（{'・'.join(sorted(scope))}）の外の回答に区分があります: {', '.join(outside)}")
+    return scoped, tuple(sorted(scope))
+
+
 def tally(name: str, entries: dict[str, KeyEntry], labels: dict[str, str], kinds: dict[str, str],
-          own: dict[str, set[str]], categories: dict[str, str]) -> GraderTally:
-    """1 人の採点者の区分と、その組の自著名から、条件ごとの指標を出す。"""
-    _check_titles(own, entries, categories)
-    judged = join(entries, labels, kinds)
+          own: dict[str, set[str]], categories: dict[str, str], conditions: tuple[str, ...] = CONDITIONS,
+          scope: Optional[frozenset] = None, faithful: Optional[dict] = None) -> GraderTally:
+    """1 人の採点者の区分と、その組の自著名から、条件ごとの指標を出す。
+
+    scope は採点者が採点した問いの種類（None はすべて）。範囲の外の指標は出さず、範囲が架空引用の分母
+    （factual・attribution・trap）を覆わなければ架空引用も数えない。faithful は付け足し・書き換えの判定で、全回答に要る。
+    """
+    scoped, scope_kinds = _scoped(entries, labels, kinds, scope)
+    judged = join(scoped, labels, kinds)
     results = question_results(judged)
-    fictitious = {way: _fictitious(judged, own, categories, counted) for way, counted in COUNTED.items()}
+    fictitious = {}
+    if set(FICTITIOUS_KINDS) & set(kinds.values()) <= set(scope_kinds):  # 評価セットにある分母の種類をすべて採点した
+        _check_titles(own, entries, categories)
+        fictitious = {way: _fictitious(judged, own, categories, counted, conditions) for way, counted in COUNTED.items()}
+    if faithful is not None:
+        _check_faithful(faithful, entries)
     metrics = {}
-    for condition in CONDITIONS:
+    for condition in conditions:
         denominator = sum(1 for j in judged if j.entry.condition == condition and j.kind in FICTITIOUS_KINDS)
         metrics[condition] = {
-            **_question_metrics(results, condition),
-            **_answer_metrics(judged, condition),
+            **_question_metrics(results, condition, scope_kinds),
+            **_answer_metrics(judged, condition, scope_kinds),
             **{f"fictitious_{way}": Count(tuple(a for a, _ in fictitious[way][condition]), denominator)
-               for way in COUNTED},
+               for way in COUNTED if fictitious},
+            **(_faithfulness_metrics(entries, faithful, condition) if faithful is not None else {}),
         }
-    return GraderTally(name, tuple(judged), tuple(results), metrics, fictitious)
+    return GraderTally(name, tuple(judged), tuple(results), metrics, fictitious, tuple(conditions), scope_kinds, faithful)
 
 
 # --- 結論 ---------------------------------------------------------------------------------
@@ -352,23 +458,37 @@ def margin_for(metric: str, total: int) -> int:
     return QUESTION_MARGIN if metric in QUESTION_METRICS else math.ceil(total * RATE_MARGIN_SHARE)
 
 
-def conclusion(b0: int, b1: int, margin: int = QUESTION_MARGIN) -> str:
-    if b1 - b0 >= margin:
-        return "B1 が明確に多い"
-    if b0 - b1 >= margin:
-        return "B0 が明確に多い"
+def conclusion(first: int, second: int, margin: int = QUESTION_MARGIN, names: tuple[str, ...] = CONDITIONS) -> str:
+    if second - first >= margin:
+        return f"{names[1]} が明確に多い"
+    if first - second >= margin:
+        return f"{names[0]} が明確に多い"
     return "明確な差なし"
 
 
 def metric_conclusion(t: GraderTally, metric: str) -> str:
-    b0, b1 = t.metrics["B0"][metric], t.metrics["B1"][metric]
-    if b0.total != b1.total:
-        raise ValueError(f"{metric} の分母が条件で違います（B0 {b0.total}、B1 {b1.total}）")
-    return conclusion(b0.n, b1.n, margin_for(metric, b0.total))
+    first, second = (t.metrics[c][metric] for c in t.conditions[:2])
+    if first.total != second.total:
+        raise ValueError(f"{metric} の分母が条件で違います（{t.conditions[0]} {first.total}、{t.conditions[1]} {second.total}）")
+    return conclusion(first.n, second.n, margin_for(metric, first.total), t.conditions)
 
 
 def ceiling_reached(t: GraderTally) -> bool:
-    return t.metrics["B1"]["trap_refused"].n >= CEILING
+    """後の条件の trap 正しい拒否が 9/10 以上か（Phase 3 では基準値の天井効果、Phase 4 では「下がらず」）。"""
+    return t.metrics[t.conditions[1]]["trap_refused"].n >= CEILING
+
+
+def gate(t: GraderTally, condition: str) -> list[tuple[str, str, tuple[str, int], bool]]:
+    """正確さの関門の各項目を （指標, 数, （比べ方, 値）, 満たすか） で返す。付け足し・書き換えの判定が要る。"""
+    if t.faithful is None:
+        raise ValueError("付け足し・書き換えの判定が無いので、正確さの関門を判定できません")
+    rows = []
+    for metric, op, value in GATE:
+        if op not in GATE_OPS:
+            raise ValueError(f"関門の比べ方 {op} を知りません（{metric}）")
+        count = t.metrics[condition][metric]
+        rows.append((metric, count.text(), (op, value), GATE_OPS[op](count.n, value)))
+    return rows
 
 
 def label_agreement(first: dict[str, str], second: dict[str, str]) -> tuple[int, int, list[str]]:

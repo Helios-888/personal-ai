@@ -1,6 +1,7 @@
 """tally_report: 集計結果の報告（tally.md）に、数えた回答へのたどり道と、先に決めた規則が載るかを検証する。"""
 from scripts.lib.tally import read_title_categories, tally
 from scripts.lib.tally_report import render_report
+from tests import test_tally_generic as generic
 from tests.test_tally import KINDS, OWN, TITLES_YAML, entries, labels
 
 HEADER = {"record": "key-header", "sources": {"B0": {"path": "base/b0"}, "B1": {"path": "base/b1"}}}
@@ -42,8 +43,9 @@ def test_conclusions_show_margins_and_flag_disagreement():
 
 
 def test_ceiling_line_per_grader():
+    # Phase 3 では後の条件（B1）の天井効果、Phase 4 では後の条件（K1）が「下がらず」かを見る。どちらも 9/10 以上か
     report = render(grader("甲"))
-    assert "- 甲：B1 の trap 正しく退けた 1/1 → 当たらない" in report
+    assert "- 甲：B1 の trap 正しく退けた 1/1 → 9/10 に届かない" in report
     assert "判定は正式な値（甲）で行う" in report
 
 
@@ -82,3 +84,56 @@ def test_appendix_lists_hits_for_every_metric():
     assert "- trap 正しく退けた（回答単位）・B1（2/3）：T01-b、T01-f" in report
     assert "- factual 正答（多数決）・B1（0/1）：なし" in report
     assert "transcript.md" in report
+
+
+# --- Phase 4：条件名の一般化、採点範囲の限られた採点者、付け足し・書き換え、関門 ------------------
+
+
+P4_HEADER = {"record": "key-header", "sources": {"B1": {"path": "base/b1"}, "K1": {"path": "runs/k1"}}}
+
+
+def render_p4(*tallies) -> str:
+    return render_report(P4_HEADER, list(tallies), [], INPUTS, "c0ffee")
+
+
+def test_limited_second_grader_shows_dashes_and_agrees_within_its_scope():
+    trap_only = {a: label for a, label in labels().items() if a.startswith("T")}
+    second = tally("乙", entries(), trap_only, KINDS, OWN, read_title_categories(TITLES_YAML), scope=frozenset({"trap"}))
+    report = render(grader("甲"), second)
+    assert "| factual 正答（多数決） | 1/1 | 0/1 | — | — |" in report
+    assert "| trap 正しく退けた（多数決） | 0/1 | 1/1 | 0/1 | 1/1 |" in report
+    assert "区分の一致：6/6（100.0%）。乙 の採点範囲：trap" in report
+    # 相手の採点範囲の外では照合していない。「同じ」と書くと 2 人が同意したように読める（code-reviewer M4）
+    assert "| factual 正答（多数決） | 2 問 | 明確な差なし | — | 照合なし |" in report
+    assert "| trap 正しく退けた（多数決） | 2 問 | 明確な差なし | 明確な差なし | 同じ |" in report
+
+
+def test_metrics_use_the_conditions_of_the_record_with_content_questions_first():
+    report = render_p4(generic.run())
+    assert "| 指標 | B1（甲） | K1（甲） |" in report
+    assert report.index("| 内容 10 問 正答（多数決） |") < report.index("| factual 正答（多数決） |")
+    assert "- 記録 K1：`runs/k1`" in report
+    assert "伝記の 5 問" in report.split("## 問いごとの判定")[1]
+
+
+def test_faithfulness_section_lists_what_was_added_or_altered():
+    t = generic.run(faithful=generic.faithful(F01_b=(("鋳造",), ()), H01_a=((), ("797 年を 777 年",))))
+    report = render_p4(t)
+    section = report.split("## 付け足し・書き換え")[1].split("\n## ")[0]
+    assert "| F01-b | K1 | 1 回目 | 5 | 鋳造 | — |" in section
+    assert "| H01-a | B1 | 1 回目 | 26 | — | 797 年を 777 年 |" in section
+    assert "盲検でない" in section
+    assert "| 内容 10 問 付け足し・書き換えあり（回答単位） | 0/3 | 1/3 |" in report
+
+
+def test_gate_section_shows_each_rule_for_each_condition():
+    report = render_p4(generic.run(faithful=generic.faithful()))
+    section = report.split("## 正確さの関門")[1].split("\n## ")[0]
+    assert "| 内容 10 問 正答（多数決） | 7 問以上（案） | 0/1 満たさない | 1/1 満たさない |" in section
+    assert "| 内容 10 問 付け足し・書き換えあり（回答単位） | 0（案） | 0/3 満たす | 0/3 満たす |" in section
+    assert "| 架空引用（厳しい数え方） | 0 |" in section and "| trap 正しく退けた（多数決） | 9 問以上 |" in section
+
+
+def test_no_gate_or_faithfulness_section_without_the_judgment():
+    report = render_p4(generic.run())
+    assert "## 正確さの関門" not in report and "## 付け足し・書き換え" not in report
