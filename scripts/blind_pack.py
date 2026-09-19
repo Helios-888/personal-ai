@@ -1,11 +1,11 @@
-"""基準値の 2 記録（B0・B1）から、条件名を伏せた採点用の束と、条件へ戻す対応表を作る（Phase 3 手順 6 の 1）。
+"""条件ごとの記録から、条件名を伏せた採点用の束と、条件へ戻す対応表を作る（Phase 3 手順 6 の 1、Phase 4 の採点）。
 
-設計は docs/specs/2026-09-18-phase3-design.md「採点の段取り」。
+設計は docs/specs/2026-09-18-phase3-design.md「採点の段取り」と docs/specs/2026-09-19-phase4-design.md「採点」。
 
-使い方（llm01 のリポジトリ直下で）:
+使い方（llm01 のリポジトリ直下で）。条件は「--run 条件=記録フォルダ」で 2 つ以上渡す:
   .venv/bin/python scripts/blind_pack.py \\
-      --b0 evaluations/kukai/baseline/2026-09-18-B0-maxtok2000 \\
-      --b1 evaluations/kukai/baseline/2026-09-19-B1-maxtok2000 \\
+      --run B0=evaluations/kukai/baseline/2026-09-18-B0-maxtok2000 \\
+      --run B1=evaluations/kukai/baseline/2026-09-19-B1-maxtok2000 \\
       --out evaluations/kukai/scoring/2026-09-19-baseline
   → <out>/pack/（00-guide.md と問いごとの採点票）
     <out>/key.jsonl（呼び名から条件・回・元の記録の行へ戻す対応表。採点が終わるまで開かない）
@@ -15,6 +15,7 @@
 """
 import argparse
 import hashlib
+import re
 import secrets
 import shutil
 import sys
@@ -44,13 +45,20 @@ ANSWERS_FILE = "answers.jsonl"
 PACK_DIR = "pack"
 GUIDE_FILE = "00-guide.md"
 KEY_FILE = "key.jsonl"
-SAME_SETTINGS = ("questions_sha256", "route", "temperature", "max_tokens", "repeats")  # 比較の土俵。B0・B1 で揃う欄
+SAME_SETTINGS = ("questions_sha256", "route", "temperature", "max_tokens", "repeats")  # 比較の土俵。条件どうしで揃う欄
+# 検索の印。資料ありの条件の回答にしか出ないので、束に残ると採点者に条件が分かる（Phase 4 設計書「採点」）
+RETRIEVAL_MARKERS = {
+    "引用の印 [n]": re.compile(r"\[\d+\]"),
+    "<source> タグ": re.compile(r"<source"),
+    "SAT の行 ID": re.compile(r"T\d{4}[A-Z]?_?\.\d{2}\.\d{4}[abc]\d{2}"),
+    "資料のファイル名の区分": re.compile(r"(?<![a-z-])[a-z][a-z-]*__"),
+}
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="基準値の 2 記録から、条件名を伏せた採点用の束と対応表を作る")
-    parser.add_argument("--b0", required=True, help="B0 の記録フォルダ（リポジトリ直下から）")
-    parser.add_argument("--b1", required=True, help="B1 の記録フォルダ（リポジトリ直下から）")
+    parser = argparse.ArgumentParser(description="条件ごとの記録から、条件名を伏せた採点用の束と対応表を作る")
+    parser.add_argument("--run", action="append", required=True, metavar="条件=記録フォルダ",
+                        help="条件名と記録フォルダ（リポジトリ直下から）。2 つ以上渡す（例 --run B1=... --run K1=...）")
     parser.add_argument("--out", required=True, help="束と対応表を作るフォルダ（既にあれば止まる）")
     parser.add_argument("--questions", default=DEFAULT_QUESTIONS, help="凍結した評価セットのパス")
     parser.add_argument("--rubric", default=DEFAULT_RUBRIC, help="凍結した採点基準のパス")
@@ -71,10 +79,12 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
     questions_text = read_frozen_text(questions_path)
     rubric_text = read_frozen_text(rubric_path)
     questions_sha256 = read_record(record_path(questions_path))[0]
-    records = {"B0": args.b0, "B1": args.b1}
+    records = parse_runs(args.run)
     loaded = {condition: load_run(root, folder, condition, questions_sha256) for condition, folder in records.items()}
     runs = {condition: record for condition, (record, _) in loaded.items()}
     settings = same_settings(runs)
+    check_committed_runs(runs)
+    check_retrieval_markers(runs)
 
     seed = seed_source()
     questions = load_scoring_questions(questions_text, rubric_text)
@@ -86,7 +96,9 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
         GUIDE_FILE: render_guide(labels, rubric["extract"]),
         **{f"{g.question.id}.md": render_sheet(g, labels[g.question.kind]) for g in groups},
     }
-    check_hidden(files, [*records, *(Path(folder).name for folder in records.values()), "baseline", KEY_FILE])
+    folders = [Path(folder) for folder in records.values()]
+    hidden = [*records, *(f.name for f in folders), *(f.parent.name for f in folders), KEY_FILE]
+    check_hidden(files, [word for word in hidden if word])  # 最上位のフォルダは親の名が空になる
 
     meta = {
         "rubric_sha256": read_record(record_path(rubric_path))[0],
@@ -109,6 +121,21 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
     return 0
 
 
+def parse_runs(values: list[str]) -> dict[str, str]:
+    """「条件=記録フォルダ」の並びを、条件 → フォルダにする。条件名は束に伏せる語になるので、形を確かめる。"""
+    records: dict[str, str] = {}
+    for value in values:
+        condition, separator, folder = value.partition("=")
+        if not separator or not LABEL_PATTERN.fullmatch(condition) or not folder:
+            raise ValueError(f"--run は「条件=記録フォルダ」の形で渡してください: {value}")
+        if condition in records:
+            raise ValueError(f"--run の条件 {condition} が重複しています")
+        records[condition] = folder
+    if len(records) < 2:
+        raise ValueError("--run で記録を 2 つ以上渡してください（1 条件だけでは条件を伏せられない）")
+    return records
+
+
 def load_run(root: Path, folder: str, condition: str, questions_sha256: str) -> tuple[RunRecord, str]:
     """記録を 1 回だけ読み、その同じバイト列から中身と指紋を得る。"""
     data = (root / folder / ANSWERS_FILE).read_bytes()
@@ -118,14 +145,14 @@ def load_run(root: Path, folder: str, condition: str, questions_sha256: str) -> 
         raise ValueError(f"{folder}/{ANSWERS_FILE}: {error}") from error
     actual = record.header.get("condition")
     if actual != condition:
-        raise ValueError(f"--{condition.lower()} に渡した記録（{folder}）の条件は {actual} です。{condition} の記録を渡してください")
+        raise ValueError(f"--run {condition}= に渡した記録（{folder}）の条件は {actual} です。{condition} の記録を渡してください")
     if record.header.get("questions_sha256") != questions_sha256:
         raise ValueError(f"{folder} は、いまの questions.yaml とは別の評価セットで取った記録です")
     return record, hashlib.sha256(data).hexdigest()
 
 
 def same_settings(runs: dict[str, RunRecord]) -> dict:
-    """B0・B1 で揃っているべき設定を確かめ、その値を返す（対応表の見出しに写す）。"""
+    """条件どうしで揃っているべき設定を確かめ、その値を返す（対応表の見出しに写す）。"""
     differing = [
         f"{name}（{', '.join(f'{c}={run.header.get(name)!r}' for c, run in runs.items())}）"
         for name in SAME_SETTINGS
@@ -135,6 +162,33 @@ def same_settings(runs: dict[str, RunRecord]) -> dict:
         raise ValueError(f"記録どうしで設定が揃っていません: {'; '.join(differing)}")
     first = next(iter(runs.values()))
     return {name: first.header.get(name) for name in SAME_SETTINGS}
+
+
+def check_committed_runs(runs: dict[str, RunRecord]) -> None:
+    """未コミットの定義・コードで取った記録は束に入れない（run_eval の見張りの外で取った記録も弾く）。"""
+    for condition, run in runs.items():
+        dirty = run.header.get("git_dirty")
+        if not isinstance(dirty, list):
+            raise ValueError(f"{condition} の記録の見出しに git_dirty がありません（未コミットの変更の有無が分からない）")
+        if dirty:
+            raise ValueError(f"{condition} の記録は未コミットの定義・コードで取られています: {'、'.join(dirty)}")
+
+
+def check_retrieval_markers(runs: dict[str, RunRecord]) -> None:
+    """検索の印が残る回答があれば止める。印の扱い（RAG テンプレートか、全回答から一様に除くか）を先に決める。"""
+    found = [
+        f"{condition} の {answer.question_id} {answer.repeat} 回目（{name}）"
+        for condition, run in runs.items()
+        for answer in run.answers
+        for name, pattern in RETRIEVAL_MARKERS.items()
+        if pattern.search(answer.content)
+    ]
+    if found:
+        shown = "、".join(found[:5]) + (f" ほか {len(found) - 5} 件" if len(found) > 5 else "")
+        raise ValueError(
+            f"採点者に条件が分かる検索の印が回答にあります（{shown}）。"
+            "印の扱い（RAG テンプレートを変えるか、束を作るときに全回答から一様に除くか）を決めてから束を作ります"
+        )
 
 
 def check_question_ids(ids: list[str]) -> None:

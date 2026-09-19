@@ -2,6 +2,7 @@
 
 設計は docs/specs/2026-09-18-phase3-design.md「凍結の仕組み」。問いと正解（questions.yaml）は完全凍結、
 採点基準（rubric.yaml）は 1 回だけ改訂できる。凍結後の誤りは errata.yaml に記録する。
+付け足し・書き換えの判定（faithfulness.yaml、Phase 4）は rubric とは別の定義で、K1 を取る前に凍結する。
 """
 import datetime as dt
 import re
@@ -19,6 +20,7 @@ EVAL_DIR = ROOT / "evaluations" / "kukai"
 QUESTIONS = EVAL_DIR / "questions.yaml"
 RUBRIC = EVAL_DIR / "rubric.yaml"
 ERRATA = EVAL_DIR / "errata.yaml"
+FAITHFULNESS = EVAL_DIR / "faithfulness.yaml"
 AGENT = ROOT / "agents" / "kukai" / "agent.yaml"
 
 # 凍結時の指紋。記録（*.sha256）とここの二か所で照合する。記録ごと書き換えても、ここを書き換えない限り落ち、
@@ -27,6 +29,7 @@ QUESTIONS_DIGEST = "2e2ca6f789ced133b35b075243318acdeabedc26d590f7df41c0c831a3d3
 # rubric の指紋の履歴。改訂したら末尾に足し、rubric.yaml の revisions にも 1 件足す（改訂は 1 回まで）。
 RUBRIC_DIGESTS = ("c125b0ccad027065a3bc952e04f12eabba2b8fb67f9cb01564fd61d8cb7ec4db",)  # 2026-09-18 凍結
 MAX_RUBRIC_REVISIONS = 1
+FAITHFULNESS_DIGEST = "271b2cad8ba85a86a1011655b4f8606227ce0430e70a77f4c79fd2ea8973b9b4"  # 2026-09-19 凍結（K1 を取る前）
 
 EXPECTED_COUNTS = {"factual": 15, "attribution": 5, "trap": 10, "holdout": 2}
 RUBRIC_KEYS = ("wrong_if", "grading", "note")
@@ -80,6 +83,17 @@ def test_rubric_is_the_latest_pinned_version():
     assert verify_frozen(RUBRIC) == RUBRIC_DIGESTS[-1]
 
 
+def test_faithfulness_is_exactly_as_frozen():
+    assert verify_frozen(FAITHFULNESS) == FAITHFULNESS_DIGEST
+
+
+def test_faithfulness_defines_added_and_altered():
+    judgements = _load(FAITHFULNESS)["judgements"]
+    assert set(judgements) == {"added", "altered"}
+    for name, judgement in judgements.items():
+        assert judgement.get("question"), name
+
+
 def test_rubric_revisions_match_the_pinned_history(rubric):
     revisions = rubric["revisions"]  # 欄ごと消されたら KeyError で落とす
     assert isinstance(revisions, list)
@@ -87,7 +101,7 @@ def test_rubric_revisions_match_the_pinned_history(rubric):
     assert len(revisions) <= MAX_RUBRIC_REVISIONS
 
 
-@pytest.mark.parametrize("path", [QUESTIONS, RUBRIC], ids=lambda p: p.name)
+@pytest.mark.parametrize("path", [QUESTIONS, RUBRIC, FAITHFULNESS], ids=lambda p: p.name)
 def test_frozen_date_is_set(path):
     assert isinstance(_load(path)["frozen"], dt.date)
 

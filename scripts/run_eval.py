@@ -5,9 +5,10 @@
 条件（--condition）:
   B0 … 素のモデル。基底モデルに 1 文のシステムプロンプト（B0_SYSTEM_PROMPT）だけを付けて問う
   B1 … 常時層のみ。agent.yaml の parts から組んだシステムプロンプトで、Knowledge なし
+  K1 … 常時層＋Knowledge（Phase 4）。検索は Open WebUI の中で起きるので、経路は openwebui に限る
 経路（--route）:
   openwebui  … Open WebUI の /api/chat/completions（既定。Phase 4 と同じ経路）。
-               B1 は登録済みのカスタムモデル（kukai-ai）に問い、システムプロンプトは送らない
+               B1・K1 は登録済みのカスタムモデル（kukai-ai）に問い、システムプロンプトは送らない
                （Open WebUI が登録済みのものを先頭に足す）。問う前に、登録がリポジトリの定義と同じかを確かめる
   llama-swap … llama-swap の /v1/chat/completions（撤退時の経路）。システムプロンプトを要求に入れて送る
 
@@ -15,7 +16,7 @@
   .venv/bin/python scripts/run_eval.py --condition B1
   → evaluations/kukai/baseline/<今日>-B1/answers.jsonl（機械が読む）と transcript.md（人が読む）
   既にあれば上書きしない。回答は 1 件ごとに answers.jsonl へ追記し、最後に完走か中断かの印を書く。
-  baseline/ に置く記録は、全問・既定の反復・コミット済みの定義とコードでだけ取れる。
+  baseline/ と runs/ に置く記録は、全問・既定の反復・コミット済みの定義とコードでだけ取れる（採点に使うため）。
   経路の先行確認（1 問・1 回）の例:
   .venv/bin/python scripts/run_eval.py --condition B1 --only T01 --repeats 1 --out-dir evaluations/kukai/preflight
 """
@@ -61,7 +62,7 @@ from scripts.lib.sync import build_model_form, changed_fields  # noqa: E402
 from scripts.lib.tokens import TokenCount, count_tokens  # noqa: E402
 
 B0_SYSTEM_PROMPT = "あなたは空海（774–835）です。空海として一人称で答えてください。"
-CONDITIONS = ("B0", "B1")
+CONDITIONS = ("B0", "B1", "K1")
 ROUTE_OPENWEBUI = "openwebui"
 ROUTE_LLAMA_SWAP = "llama-swap"
 OPENWEBUI_ENDPOINT = "/api/chat/completions"
@@ -69,6 +70,8 @@ TEMPLATE_MARK = "{{"  # Open WebUI は {{CURRENT_DATE}} などをシステムプ
 DEFAULT_AGENT = "agents/kukai/agent.yaml"
 DEFAULT_QUESTIONS = "evaluations/kukai/questions.yaml"
 DEFAULT_OUT_DIR = "evaluations/kukai/baseline"
+GUARDED_OUT_DIRS = (DEFAULT_OUT_DIR, "evaluations/kukai/runs")  # 採点に使う記録の置き場（Phase 4 設計書「着手時に判明したこと」3）
+KNOWLEDGE_DIR = "knowledge"  # K1 が検索する資料の元。未コミットなら採点に使う記録にしない
 CODE_DIR = "scripts"  # 記録を作ったコード。未コミットなら基準値にしない
 DEFAULT_OPENWEBUI_URL = "http://localhost:3000"
 DEFAULT_LLAMA_SWAP_URL = "http://localhost:8080"
@@ -107,7 +110,7 @@ class EvalSetup:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="凍結した評価セットを 1 つの条件で問い、回答を記録する")
-    parser.add_argument("--condition", required=True, choices=CONDITIONS, help="B0（素のモデル）か B1（常時層のみ）")
+    parser.add_argument("--condition", required=True, choices=CONDITIONS, help="B0（素のモデル）、B1（常時層のみ）、K1（常時層＋Knowledge）")
     parser.add_argument("--route", choices=(ROUTE_OPENWEBUI, ROUTE_LLAMA_SWAP), default=ROUTE_OPENWEBUI)
     parser.add_argument("--label", default=None, help="保存先フォルダ名の末尾に足す識別子（英数字・ドット・ハイフン・下線）")
     parser.add_argument("--repeats", type=positive_int, default=DEFAULT_REPEATS, help="1 問あたりの反復回数")
@@ -170,27 +173,26 @@ def prepare(
     if args.label is not None and not LABEL_PATTERN.match(args.label):
         raise ValueError("--label は英数字・ドット・ハイフン・下線のみです")
     only = split_ids(args.only)
-    is_baseline = (root / args.out_dir).resolve() == (root / DEFAULT_OUT_DIR).resolve()
-    if is_baseline and (only is not None or args.repeats != DEFAULT_REPEATS):
-        raise ValueError("絞り込み（--only・--repeats）の記録は baseline/ に置きません。--out-dir を指定してください")
+    guarded = guarded_dir(root, args.out_dir)
+    if guarded and (only is not None or args.repeats != DEFAULT_REPEATS):
+        raise ValueError(f"絞り込み（--only・--repeats）の記録は {guarded} に置きません。--out-dir を指定してください")
     name = f"{today}-{args.condition}" + (f"-{args.label}" if args.label else "")
     out_dir = root / args.out_dir / name
     if out_dir.exists():
         raise ValueError(f"記録が既にあります。上書きしません: {display(out_dir, root)}")
 
     agent = load_agent(root, args.agent)
-    if args.condition == "B1" and agent.get("knowledge"):
-        raise ValueError("B1 は Knowledge なしの条件です。agent.yaml の knowledge が空ではありません")
+    check_condition(args.condition, args.route, agent, guarded)
     questions_text = read_frozen_text(resolve_inside(root, args.questions))
     questions = select_questions(load_eval_questions(questions_text), only)
     parts = agent["system_prompt"]["parts"]
     system_prompt = B0_SYSTEM_PROMPT if args.condition == "B0" else build_system_prompt(load_parts(root, parts))
 
-    tracked = [args.agent, args.questions, CODE_DIR, *(parts if args.condition == "B1" else [])]
-    git = git_state(root, tracked)
-    if is_baseline and git.dirty:
+    tracked = [args.agent, args.questions, CODE_DIR, *(parts if args.condition != "B0" else [])]
+    git = git_state(root, [*tracked, *([KNOWLEDGE_DIR] if args.condition == "K1" else [])])
+    if guarded and git.dirty:
         raise ValueError(
-            "baseline/ の記録は、定義とコードをコミットしてから取ります。未コミットの変更: " + "、".join(git.dirty)
+            f"{guarded} の記録は、定義とコードをコミットしてから取ります。未コミットの変更: " + "、".join(git.dirty)
         )
     return EvalSetup(
         target=choose_target(args.condition, args.route, agent, system_prompt, env, client_factory),
@@ -202,6 +204,31 @@ def prepare(
         git=git,
         out_dir=out_dir,
     )
+
+
+def guarded_dir(root: Path, out_dir: str) -> Optional[str]:
+    """採点に使う記録の置き場（その下のフォルダを含む）なら、その名前（「baseline/」など）を返す。"""
+    target = (root / out_dir).resolve()
+    for guarded in GUARDED_OUT_DIRS:
+        place = (root / guarded).resolve()
+        if target == place or place in target.parents:
+            return f"{place.name}/"
+    return None
+
+
+def check_condition(condition: str, route: str, agent: dict, guarded: Optional[str]) -> None:
+    """条件と agent.yaml の Knowledge・経路・記録の置き場が食い違えば、問う前に止める。"""
+    if condition == "B1" and agent.get("knowledge"):
+        raise ValueError("B1 は Knowledge なしの条件です。agent.yaml の knowledge が空ではありません")
+    if condition == "K1" and not agent.get("knowledge"):
+        raise ValueError("K1 は Knowledge ありの条件です。agent.yaml の knowledge が空です")
+    if condition == "K1" and route != ROUTE_OPENWEBUI:
+        raise ValueError(f"K1 は Open WebUI の検索を通す条件なので、経路は {ROUTE_OPENWEBUI} に限ります")
+    if condition == "K1" and guarded == "baseline/":
+        raise ValueError("K1 は資料ありの条件なので、RAG 無しの基準値の置き場 baseline/ には置きません（runs/ に置く）")
+    if condition == "K1" and guarded == "runs/":
+        # 付け足し・書き換えの判定（faithfulness.yaml）には、回答ごとに検索された箇所が要る。記録の仕組みは手順 5 で作る
+        raise ValueError("K1 の記録には回答ごとに検索された箇所を残す必要があります。その仕組みができるまで runs/ には取りません")
 
 
 def choose_target(
@@ -233,7 +260,7 @@ def choose_target(
 
 
 def check_registration(client, agent: dict, system_prompt: str) -> None:
-    """B1 を Open WebUI 経由で問う前に、登録済みのモデルがリポジトリの定義と同じであることを確かめる。
+    """B1・K1 を Open WebUI 経由で問う前に、登録済みのモデルがリポジトリの定義と同じであることを確かめる。
 
     システムプロンプトは Open WebUI が登録済みのものを足すため、ここが食い違うと記録の指紋と実際に送られたものがずれる。
     """

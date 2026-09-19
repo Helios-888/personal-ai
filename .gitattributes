@@ -2,3 +2,4 @@
 evaluations/kukai/questions.yaml -text
 evaluations/kukai/rubric.yaml -text
 evaluations/kukai/*.sha256 -text
+evaluations/kukai/faithfulness.yaml -text

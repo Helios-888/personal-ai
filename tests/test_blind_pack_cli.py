@@ -1,4 +1,4 @@
-"""blind_pack CLI: 基準値の 2 記録から、条件名を伏せた採点用の束と対応表を作る流れを検証する。"""
+"""blind_pack CLI: 条件ごとの記録から、条件名を伏せた採点用の束と対応表を作る流れを検証する。"""
 import json
 from pathlib import Path
 
@@ -49,6 +49,7 @@ questions:
 """
 B0_DIR = "evaluations/kukai/baseline/2026-09-18-B0-x"
 B1_DIR = "evaluations/kukai/baseline/2026-09-19-B1-x"
+K1_DIR = "evaluations/kukai/runs/2026-09-20-K1"
 OUT_DIR = "evaluations/kukai/scoring/test"
 
 
@@ -59,7 +60,7 @@ def write(path: Path, text: str) -> Path:
     return path
 
 
-def answers_jsonl(condition, questions_sha256, content=lambda q, r: f"{q}の答え{r}", max_tokens=2000):
+def answers_jsonl(condition, questions_sha256, content=lambda q, r: f"{q}の答え{r}", max_tokens=2000, git_dirty=()):
     header = {
         "record": "header",
         "condition": condition,
@@ -69,6 +70,8 @@ def answers_jsonl(condition, questions_sha256, content=lambda q, r: f"{q}の答�
         "repeats": 2,
         "questions_sha256": questions_sha256,
     }
+    if git_dirty is not None:
+        header["git_dirty"] = list(git_dirty)
     answers = [
         json.dumps(
             {"record": "answer", "condition": condition, "question_id": q, "repeat": r, "content": content(q, r)},
@@ -99,7 +102,8 @@ def root(tmp_path):
 
 
 def invoke(root, *extra, seed=42):
-    return run(["--b0", B0_DIR, "--b1", B1_DIR, "--out", OUT_DIR, *extra], root=root, seed_source=lambda: seed)
+    return run(["--run", f"B0={B0_DIR}", "--run", f"B1={B1_DIR}", "--out", OUT_DIR, *extra], root=root,
+               seed_source=lambda: seed)
 
 
 def pack_texts(root, out=OUT_DIR):
@@ -164,7 +168,8 @@ def test_files_are_written_with_lf(root):
 
 def test_same_seed_gives_same_pack(root):
     assert invoke(root) == 0
-    assert run(["--b0", B0_DIR, "--b1", B1_DIR, "--out", OUT_DIR + "-2"], root=root, seed_source=lambda: 42) == 0
+    argv = ["--run", f"B0={B0_DIR}", "--run", f"B1={B1_DIR}", "--out", OUT_DIR + "-2"]
+    assert run(argv, root=root, seed_source=lambda: 42) == 0
     assert pack_texts(root) == pack_texts(root, OUT_DIR + "-2")
 
 
@@ -208,7 +213,7 @@ def test_refuses_records_taken_with_different_settings(root, capsys):
 
 
 def test_refuses_swapped_records(root, capsys):
-    result = run(["--b0", B1_DIR, "--b1", B0_DIR, "--out", OUT_DIR], root=root, seed_source=lambda: 1)
+    result = run(["--run", f"B0={B1_DIR}", "--run", f"B1={B0_DIR}", "--out", OUT_DIR], root=root, seed_source=lambda: 1)
     assert result == 1
     assert "B0" in capsys.readouterr().err
     assert not (root / OUT_DIR).exists()
@@ -260,3 +265,84 @@ def test_question_ids_must_be_safe_file_names():
     check_question_ids(["F01", "H02"])
     with pytest.raises(ValueError, match="../x"):
         check_question_ids(["F01", "../x"])
+
+
+# --- Phase 4：B1 と K1 の組など、条件は --run で渡す ---
+
+
+def test_packs_any_pair_of_conditions(root):
+    # Phase 4 は B1 の基準値に K1 を混ぜる（設計書「採点」）。記録の置き場は runs/
+    write(root / K1_DIR / "answers.jsonl", answers_jsonl("K1", file_sha256(root / "evaluations/kukai/questions.yaml")))
+    argv = ["--run", f"B1={B1_DIR}", "--run", f"K1={K1_DIR}", "--out", OUT_DIR]
+    assert run(argv, root=root, seed_source=lambda: 3) == 0
+    key = read_key(root)
+    assert set(key[0]["sources"]) == {"B1", "K1"}
+    assert {row["condition"] for row in key[1:]} == {"B1", "K1"}
+    for name, text in pack_texts(root).items():
+        for hidden in ("B1", "K1", "runs", "2026-09-20-K1"):
+            assert hidden not in text, f"{name} に {hidden} が含まれる"
+
+
+def test_needs_at_least_two_runs(root, capsys):
+    assert run(["--run", f"B1={B1_DIR}", "--out", OUT_DIR], root=root, seed_source=lambda: 1) == 1
+    assert "2 つ以上" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()
+
+
+def test_refuses_the_same_condition_twice(root, capsys):
+    argv = ["--run", f"B1={B1_DIR}", "--run", f"B1={B0_DIR}", "--out", OUT_DIR]
+    assert run(argv, root=root, seed_source=lambda: 1) == 1
+    assert "B1" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()
+
+
+@pytest.mark.parametrize("bad", [B1_DIR, "=" + B1_DIR, "B1=", "../x=" + B1_DIR])
+def test_refuses_a_malformed_run_argument(root, capsys, bad):
+    assert run(["--run", bad, "--run", f"B0={B0_DIR}", "--out", OUT_DIR], root=root, seed_source=lambda: 1) == 1
+    assert "--run" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()
+
+
+def k1_record(root, content=lambda q, r: f"{q}の答え{r}", folder=K1_DIR):
+    write(root / folder / "answers.jsonl",
+          answers_jsonl("K1", file_sha256(root / "evaluations/kukai/questions.yaml"), content=content))
+    return ["--run", f"B1={B1_DIR}", "--run", f"K1={folder}", "--out", OUT_DIR]
+
+
+@pytest.mark.parametrize("git_dirty", [[" M agents/kukai/rules.md"], None], ids=["dirty", "missing"])
+def test_refuses_a_record_taken_with_uncommitted_definitions(root, capsys, git_dirty):
+    # run_eval の見張りをすり抜けた記録（runs/ の外で取ったものなど）も、採点の束には入れない
+    digest = file_sha256(root / "evaluations/kukai/questions.yaml")
+    write(root / B1_DIR / "answers.jsonl", answers_jsonl("B1", digest, git_dirty=git_dirty))
+    assert invoke(root) == 1
+    err = capsys.readouterr().err
+    assert "未コミット" in err and "B1" in err
+    assert not (root / OUT_DIR).exists()
+
+
+@pytest.mark.parametrize(
+    "marker",
+    ["四つである [1]。", "T2428_.77.0382c22 に曰く", '<source id="1">', "primary__即身成仏義.md による", "資料はprimary__即身成仏義"],
+    ids=["citation", "sat-line-id", "source-tag", "file-prefix", "file-prefix-after-kana"],
+)
+def test_refuses_answers_that_carry_retrieval_markers(root, capsys, marker):
+    # 検索の印は資料ありの条件にしか出ないので、残すと採点者に条件が分かる（上限の試験では 9 回答中 4 に [1]）
+    argv = k1_record(root, content=lambda q, r: f"{q}の答え{r}。{marker}")
+    assert run(argv, root=root, seed_source=lambda: 1) == 1
+    err = capsys.readouterr().err
+    assert "K1" in err and "印" in err
+    assert not (root / OUT_DIR).exists()
+
+
+def test_hides_the_parent_folder_of_each_record(root, capsys):
+    # K1 の記録は runs/ の下にある。その名が束に出れば条件が分かる
+    argv = k1_record(root, content=lambda q, r: f"{q}の答え{r} runs")
+    assert run(argv, root=root, seed_source=lambda: 1) == 1
+    assert "runs" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()
+
+
+def test_a_record_folder_at_the_repo_top_is_accepted(root):
+    # 親フォルダの名が空になる。空の語を伏せる語に入れると、どの束も「漏れ」と判定される
+    argv = k1_record(root, folder="2026-09-20-K1-top")
+    assert run(argv, root=root, seed_source=lambda: 1) == 0

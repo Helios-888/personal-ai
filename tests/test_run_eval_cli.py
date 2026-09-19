@@ -606,6 +606,132 @@ def test_git_state_is_checked_for_what_the_condition_depends_on(tmp_path, condit
     assert header["git_commit"] == "c0ffee"
 
 
+# --- K1（Phase 4：常時層＋Knowledge）と runs/ ---
+
+K1_AGENT = {**AGENT_YAML, "knowledge": ["kukai-primary"]}
+RUNS = "evaluations/kukai/runs"
+PREFLIGHT = "evaluations/kukai/preflight"
+
+
+def k1_openwebui() -> FakeOpenWebUI:
+    return FakeOpenWebUI(build_model_form(K1_AGENT, SYSTEM_PROMPT))
+
+
+def test_k1_via_openwebui_asks_the_registered_model_that_carries_the_knowledge(tmp_path):
+    # 検索は Open WebUI の中で起きる。登録済みのモデル（Knowledge つき）に問い、system は送らない
+    root = make_repo(tmp_path, agent=K1_AGENT)
+
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, openwebui=k1_openwebui())
+
+    assert rc == 0
+    assert chat.calls
+    assert all(call["model"] == "kukai-ai" and call["system"] is None for call in chat.calls)
+    header = json.loads((root / PREFLIGHT / f"{TODAY}-K1" / "answers.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert header["condition"] == "K1"
+
+
+def test_k1_refuses_an_agent_without_knowledge(tmp_path, capsys):
+    root = make_repo(tmp_path)
+
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root)
+
+    assert rc == 2
+    assert chat.calls == []
+    assert "Knowledge" in capsys.readouterr().err
+
+
+def test_k1_refuses_the_llama_swap_route_that_has_no_retrieval(tmp_path, capsys):
+    root = make_repo(tmp_path, agent=K1_AGENT)
+
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--route", "llama-swap", "--out-dir", PREFLIGHT], root)
+
+    assert rc == 2
+    assert chat.calls == []
+    assert "openwebui" in capsys.readouterr().err
+
+
+def test_k1_refuses_when_the_registered_model_lacks_the_knowledge(tmp_path, capsys):
+    root = make_repo(tmp_path, agent=K1_AGENT)
+
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root)  # 登録は Knowledge なしのまま
+
+    assert rc == 2
+    assert chat.calls == []
+    assert "sync_openwebui.py" in capsys.readouterr().err
+
+
+def test_k1_also_tracks_the_knowledge_files(tmp_path):
+    root = make_repo(tmp_path, agent=K1_AGENT)
+    git_calls = []
+
+    run_cli(["--condition", "K1", "--out-dir", PREFLIGHT], root, openwebui=k1_openwebui(), git_calls=git_calls)
+
+    assert git_calls == [
+        (
+            root,
+            [
+                "agents/kukai/agent.yaml",
+                "evaluations/kukai/questions.yaml",
+                "scripts",
+                "agents/kukai/a.md",
+                "agents/kukai/b.md",
+                "knowledge",
+            ],
+        )
+    ]
+
+
+@pytest.mark.parametrize("narrowing", [["--only", "F01"], ["--repeats", "1"]], ids=["only", "repeats"])
+def test_a_narrowed_run_is_not_saved_under_runs(tmp_path, capsys, narrowing):
+    root = make_repo(tmp_path)
+
+    rc, chat, _, _ = run_cli(["--condition", "B1", "--out-dir", RUNS, *narrowing], root)
+
+    assert rc == 2
+    assert chat.calls == []
+    assert "runs/" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "out", [RUNS, RUNS + "/", "./" + RUNS, RUNS + "/phase4", "evaluations/kukai/baseline/sub"],
+    ids=["runs", "trailing-slash", "dot-slash", "runs-subfolder", "baseline-subfolder"],
+)
+def test_runs_requires_committed_definitions_and_code(tmp_path, capsys, out):
+    # runs/ の記録も採点に使うので、baseline/ と同じ見張りを掛ける（設計書「着手時に判明したこと」3）。下のフォルダも同じ
+    root = make_repo(tmp_path)
+    dirty = GitState(commit="c0ffee", dirty=(" M agents/kukai/b.md",))
+
+    rc, chat, _, _ = run_cli(["--condition", "B1", "--out-dir", out], root, git=dirty)
+
+    assert rc == 2
+    assert chat.calls == []
+    err = capsys.readouterr().err
+    assert "未コミット" in err
+    assert "agents/kukai/b.md" in err
+
+
+def test_k1_is_not_saved_under_the_no_rag_baseline(tmp_path, capsys):
+    root = make_repo(tmp_path, agent=K1_AGENT)
+
+    rc, chat, _, _ = run_cli(["--condition", "K1"], root, openwebui=k1_openwebui())
+
+    assert rc == 2
+    assert chat.calls == []
+    assert "baseline/" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("out", [RUNS, RUNS + "/phase4"])
+def test_k1_is_not_saved_under_runs_until_retrieval_is_recorded(tmp_path, capsys, out):
+    # 付け足し・書き換えの判定には、回答ごとに検索された箇所が要る（faithfulness.yaml）。記録の仕組みは手順 5 で作る
+    root = make_repo(tmp_path, agent=K1_AGENT)
+
+    rc, chat, _, _ = run_cli(["--condition", "K1", "--out-dir", out], root, openwebui=k1_openwebui())
+
+    assert rc == 2
+    assert chat.calls == []
+    assert "検索された箇所" in capsys.readouterr().err
+
+
 def test_openwebui_route_refuses_a_system_prompt_with_template_variables(tmp_path, capsys):
     # Open WebUI は {{CURRENT_DATE}} などを置き換えるので、記録の指紋と実際に届くものがずれる
     root = make_repo(tmp_path)

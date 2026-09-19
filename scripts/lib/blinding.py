@@ -39,6 +39,7 @@ class ScoringQuestion:
     key_points: tuple[tuple[str, str], ...]  # （要点, 出典）
     wrong_if: tuple[str, ...]
     grading: str
+    note: str = ""  # rubric の備考。Phase 3 では採点票に載せていなかった
 
 
 @dataclass(frozen=True)
@@ -124,6 +125,7 @@ def _scoring_question(entry: dict, rubric: dict) -> ScoringQuestion:
         key_points=tuple((kp["point"], kp["source"]) for kp in entry.get("key_points") or []),
         wrong_if=tuple(rubric.get("wrong_if") or []),
         grading=(rubric.get("grading") or "").strip(),
+        note=(rubric.get("note") or "").strip(),
     )
 
 
@@ -175,6 +177,7 @@ def render_sheet(group: BlindGroup, labels: dict[str, str]) -> str:
         if question.wrong_if
         else [],
         ["", "## この問いの採点の決まり（grading）", "", question.grading] if question.grading else [],
+        ["", "## この問いの備考（note）", "", question.note] if question.note else [],
         ["", "## 回答"],
         *(["", f"### {answer.answer_id}", "", *_fenced(answer)] for answer in group.answers),
     ]
@@ -217,6 +220,8 @@ def render_guide(labels_by_kind: dict[str, dict[str, str]], extract: list[str]) 
         "",
         *(f"- {item}" for item in extract),
         "",
+        "本文中に「 」で挙げた書名も、書名として挙げているなら『 』と同じく抜き出す"
+        "（会話の言葉や語句を示すための「 」は抜き出さない）。",
         "書名が実在するか、誰の著作かは判定しない。回答に書かれたとおりに抜き出す。",
     ]
     output = [

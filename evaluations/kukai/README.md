@@ -15,12 +15,13 @@
 | `questions.yaml` | 問いの文と正解の要点（出典つき） | 完全凍結。`questions.sha256` で照合 |
 | `rubric.yaml` | 判定の区分、多数決で割れたときの扱い、問いごとの誤答条件 | 凍結。1 回だけ改訂できる。`rubric.sha256` で照合 |
 | `errata.yaml` | 凍結後に見つかった問いの誤り | 凍結しない。追記のみ |
+| `faithfulness.yaml` | 付け足し・書き換えの判定の定義（Phase 4。rubric とは別の物差し） | K1 を取る前に凍結（2026-09-19）。`faithfulness.sha256` で照合 |
 | `baseline/` | RAG 無しの基準値（B0・B1）。どの記録を採点に使うかは `baseline/README.md` | Phase 3 で取得（2026-09-19） |
 | `preflight/` | 本番前の経路と出力上限の確認（1 回ずつ） | 採点には使わない |
-| `runs/` | Phase 4 以降の実行結果 | |
+| `runs/` | Phase 4 以降の実行結果 | baseline/ と同じく、全問・既定の反復・コミット済みの定義とコードでだけ取れる |
 | `phase2-voice-check/` | Phase 2 の語り口の確認。評価セットとは別物 | 凍結対象外 |
 
-照合は `.venv/bin/python -m pytest tests/test_eval_freeze.py`、または `cd evaluations/kukai && sha256sum -c questions.sha256 rubric.sha256`。
+照合は `.venv/bin/python -m pytest tests/test_eval_freeze.py`、または `cd evaluations/kukai && sha256sum -c questions.sha256 rubric.sha256 faithfulness.sha256`。
 指紋はバイト列で計算するため、`.gitattributes` で改行の自動変換を止めてある。
 
 ## 構成（30 問＋ホールドアウト 2 問）

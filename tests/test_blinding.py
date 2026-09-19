@@ -258,6 +258,18 @@ class TestRenderSheet:
         with pytest.raises(ValueError, match="囲み"):
             render_sheet(group, {"正答": "x"})
 
+    def test_sheet_shows_the_rubric_note(self, runs):
+        # Phase 3 では note を載せておらず、採点者は rubric の備考を見られなかった
+        with_note = RUBRIC_YAML.replace("    grading: 二点で正答\n", "    grading: 二点で正答\n    note: 触れても加点にも減点にもしない\n")
+        group = blind_groups(load_scoring_questions(QUESTIONS_YAML, with_note), runs, seed=7)[0]
+        sheet = render_sheet(group, {"正答": "x"})
+        assert "## この問いの備考（note）\n\n触れても加点にも減点にもしない\n" in sheet
+        assert sheet.index("（grading）") < sheet.index("（note）") < sheet.index("## 回答")
+
+    def test_sheet_has_no_note_heading_without_a_note(self, questions, runs):
+        for group in blind_groups(questions, runs, seed=7):
+            assert "（note）" not in render_sheet(group, {"正答": "x"})
+
 
 class TestRenderGuide:
     def test_guide_lists_labels_extract_and_output_format(self):
@@ -278,6 +290,12 @@ class TestRenderGuide:
         guide = render_guide({"factual": {"正答": "x"}}, ["y"])
         for hidden in ("B0", "B1", "条件", "比較", "基準値"):
             assert hidden not in guide
+
+    def test_guide_extracts_titles_given_in_kagikakko_too(self):
+        # Phase 3 では『』だけを抜き出し、「」で挙げた自著名（架空のものを含む）を補助の抜き出しで拾い直した
+        guide = render_guide({"factual": {"正答": "x"}}, ["本文中に『 』で挙げた書名"])
+        assert "本文中に「 」で挙げた書名も、書名として挙げているなら『 』と同じく抜き出す" in guide
+        assert guide.index("## 抜き出し") < guide.index("「 」で挙げた書名も") < guide.index("## 出力")
 
     def test_output_example_does_not_suggest_a_real_title(self):
         guide = render_guide({"factual": {"正答": "x"}}, ["y"])
