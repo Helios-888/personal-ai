@@ -69,6 +69,13 @@ class FakeOpenWebUI:
         self.calls.append(("add", knowledge_id, file_id))
         return {"id": knowledge_id}
 
+    def remove_file_from_knowledge(self, knowledge_id, file_id):
+        files = self.knowledge[knowledge_id]["files"]
+        name = next(n for n, f in files.items() if f["file_id"] == file_id)
+        del files[name]
+        self.calls.append(("remove", knowledge_id, file_id))
+        return {"id": knowledge_id}
+
     def get_knowledge_files(self, knowledge_id):
         files = self.knowledge[knowledge_id]["files"]
         items = [{"id": f["file_id"], "filename": n, "meta": {"name": n, "file_hash": f["sha256"]}} for n, f in files.items()]
@@ -291,3 +298,57 @@ def test_it_needs_the_api_key(tmp_path, capsys):
     assert rc == 2
     assert made == []
     assert "OPENWEBUI_API_KEY" in capsys.readouterr().err
+
+
+# --- 1 点だけ入れ直す（--replace、2026-09-20 Phase 5） ---------------------------------
+
+
+RESTORED = chr(36978) + chr(21578) + chr(65288) + chr(24489) + chr(20803) + chr(65289) + chr(10)
+
+
+def test_replace_swaps_a_changed_file_and_leaves_the_rest_alone(tmp_path, capsys):
+    root, server = make_repo(tmp_path), FakeOpenWebUI()
+    run_cli([], root, server)
+    (root / L1).write_bytes(RESTORED.encode("utf-8"))
+    server.calls.clear()
+
+    rc, _ = run_cli(["--replace", L1], root, server)
+
+    assert rc == 0
+    assert ("remove", "kid-1", "f2") in server.calls
+    assert server.knowledge["kid-1"]["files"]["later-attribution__御遺告.md"]["sha256"] == sha(RESTORED)
+    assert server.knowledge["kid-1"]["files"]["primary__即身成仏義.md"]["file_id"] == "f1"  # ほかは触らない
+
+
+def test_replace_shows_the_plan_without_touching_anything_on_a_dry_run(tmp_path, capsys):
+    root, server = make_repo(tmp_path), FakeOpenWebUI()
+    run_cli([], root, server)
+    (root / L1).write_bytes(RESTORED.encode("utf-8"))
+    server.calls.clear()
+
+    rc, _ = run_cli(["--dry-run", "--replace", L1], root, server)
+
+    assert rc == 0
+    assert "replace" in capsys.readouterr().out
+    assert server.calls == []
+
+
+def test_a_changed_file_still_stops_when_replace_was_not_asked_for(tmp_path, capsys):
+    root, server = make_repo(tmp_path), FakeOpenWebUI()
+    run_cli([], root, server)
+    (root / L1).write_bytes(RESTORED.encode("utf-8"))
+
+    rc, _ = run_cli([], root, server)
+
+    assert rc == 1
+    assert "中身が違います" in capsys.readouterr().err
+
+
+def test_replace_refuses_a_path_that_is_not_in_the_bundle(tmp_path, capsys):
+    root, server = make_repo(tmp_path), FakeOpenWebUI()
+
+    rc, _ = run_cli(["--replace", "knowledge/kukai/primary/primary__無い.md"], root, server)
+
+    assert rc == 2
+    assert "無い" in capsys.readouterr().err
+    assert server.calls == []

@@ -38,5 +38,8 @@ knowledge:
     sha256: 9686346539636813d20b0f19163aff3a313b46779a1fb76f0d3f341d61d33355
     file_id: 9e7d4997-28f3-41ee-8d40-7badfe9b560b
   - path: knowledge/kukai/later-attribution/later-attribution__御遺告.md
-    sha256: 64b67b52778ecd435f5e7dd0f39c2747d2d763f9e8604189396c11f9659decd4
-    file_id: aae08843-14de-4dd0-975f-669387c8b0ce
+    sha256: eec9b9e4b120591df137e15c41ed1ab4d24ce456cad20aa5ad2e3717de1deb3d
+    file_id: 24cedd62-5f90-4fd2-9d3a-ce32cc73b119
+  - path: knowledge/kukai/biography/biography__年譜.md
+    sha256: 5441c721924944929ae64a39f646a85619075526cf94c03e0d171fef299fd5d0
+    file_id: 21fc486f-5b4d-4730-a378-0dc3cbf42661

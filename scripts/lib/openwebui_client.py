@@ -77,6 +77,10 @@ class OpenWebUIClient:
         return self._post(f"/api/v1/knowledge/{_checked_id(knowledge_id)}/file/add", {"file_id": file_id},
                           timeout=UPLOAD_TIMEOUT)
 
+    def remove_file_from_knowledge(self, knowledge_id: str, file_id: str) -> dict:
+        """束からファイルを 1 点外す。束は残るので、入れ直しは add_file_to_knowledge で続けられる。"""
+        return self._post(f"/api/v1/knowledge/{_checked_id(knowledge_id)}/file/remove", {"file_id": file_id})
+
     def get_knowledge_files(self, knowledge_id: str, limit: int = 100) -> dict:
         return self._get(f"/api/v1/knowledge/{_checked_id(knowledge_id)}/files", params={"page": 1, "limit": limit})
 

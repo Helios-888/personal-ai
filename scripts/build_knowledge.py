@@ -60,6 +60,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="agent.yaml の knowledge を Open WebUI の Knowledge として作る")
     parser.add_argument("--agent", default=DEFAULT_AGENT, help="agent.yaml のパス（リポジトリ直下から）")
     parser.add_argument("--dry-run", action="store_true", help="作る束と入れるファイルを表示するだけ")
+    parser.add_argument("--replace", action="append", default=[], metavar="PATH",
+                        help="束の中の 1 点を入れ直す（中身が変わったファイル。何度でも指定できる）")
     return parser.parse_args(argv)
 
 
@@ -76,6 +78,7 @@ def run(argv: list[str], *, root: Path, env: dict, client_factory: Callable[[str
             raise ValueError(f"{args.agent} の knowledge が空です")
         expected = expected_embedding_model(agent)
         digests = local_digests(root, specs)
+        check_replace(args.replace, specs)
         read_registered(root, args.agent)  # 壊れた記録なら Open WebUI に触る前に止める
     except (ValueError, OSError, yaml.YAMLError) as error:
         print(f"error: {error}", file=sys.stderr)
@@ -92,6 +95,14 @@ def run(argv: list[str], *, root: Path, env: dict, client_factory: Callable[[str
     if args.dry_run:
         print("dry-run: nothing sent")
     return 0
+
+
+def check_replace(replace: list[str], specs: list) -> None:
+    """--replace に渡せるのは、束の定義にあるファイルだけ（打ち間違いを黙って無視しない）。"""
+    known = {path for spec in specs for path in spec.files}
+    unknown = sorted(set(replace) - known)
+    if unknown:
+        raise ValueError("--replace に渡したファイルが束の定義にありません: " + "、".join(unknown))
 
 
 def check_server(client, expected_embedding: str) -> dict:
@@ -131,6 +142,12 @@ def build_one(spec: KnowledgeSpec, digests: dict[str, str], ingest: dict, client
                 "設定を戻すか、束を作り直してください"
             )
         on_server = server_files(client.get_knowledge_files(found.id))
+
+    for path in [p for p in spec.files if p in args.replace and Path(p).name in on_server]:
+        print(f"plan: replace {path}")
+        if not args.dry_run:
+            client.remove_file_from_knowledge(found.id, on_server[Path(path).name]["file_id"])
+        on_server.pop(Path(path).name)  # 以後は「入っていない」ものとして扱い、下の流れで入れ直す
 
     comparison = compare(spec, digests, on_server)
     if comparison.changed or comparison.extra:

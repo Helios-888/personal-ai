@@ -212,3 +212,19 @@ def test_refresh_models_raises_on_failure_without_echoing_the_body():
     with pytest.raises(OpenWebUIError) as excinfo:
         client.refresh_models()
     assert "other-model" not in str(excinfo.value)
+
+
+def test_remove_file_from_knowledge_posts_the_file_id():
+    client, session = make_client(FakeResponse(200, {"id": KID, "files": []}))
+
+    client.remove_file_from_knowledge(KID, "f1")
+    method, url, _, _, body = session.calls[0]
+    assert (method, url, body) == ("POST", f"http://owui:3000/api/v1/knowledge/{KID}/file/remove", {"file_id": "f1"})
+
+
+def test_remove_file_from_knowledge_checks_the_knowledge_id():
+    client, session = make_client()
+
+    with pytest.raises(ValueError):
+        client.remove_file_from_knowledge("../models", "f1")
+    assert session.calls == []
