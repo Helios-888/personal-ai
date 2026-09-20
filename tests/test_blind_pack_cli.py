@@ -368,3 +368,79 @@ def test_a_record_folder_at_the_repo_top_is_accepted(root):
     # 親フォルダの名が空になる。空の語を伏せる語に入れると、どの束も「漏れ」と判定される
     argv = k1_record(root, folder="2026-09-20-K1-top")
     assert run(argv, root=root, seed_source=lambda: 1) == 0
+
+
+# --- Phase 5：同じ条件名で取った 2 つの記録を、束では別の名で呼ぶ（--recorded） ---
+
+K2_DIR = "evaluations/kukai/runs/2026-09-20-K1-phase5"
+
+
+def two_k1_records(root):
+    """Phase 5 の本番は run_eval の条件 K1 で取ってある（K2 という条件名は run_eval に無い）。"""
+    digest = file_sha256(root / "evaluations/kukai/questions.yaml")
+    write(root / K1_DIR / "answers.jsonl", answers_jsonl("K1", digest))
+    write(root / K2_DIR / "answers.jsonl", answers_jsonl("K1", digest))
+    return ["--run", f"K1={K1_DIR}", "--run", f"K2={K2_DIR}", "--out", OUT_DIR]
+
+
+def test_packs_two_records_of_the_same_recorded_condition(root):
+    argv = [*two_k1_records(root), "--recorded", "K2=K1"]
+    assert run(argv, root=root, seed_source=lambda: 5) == 0
+    key = read_key(root)
+    assert key[0]["sources"]["K2"] == {
+        "path": K2_DIR,
+        "recorded_condition": "K1",
+        "answers_sha256": file_sha256(root / K2_DIR / "answers.jsonl"),
+    }
+    assert key[0]["sources"]["K1"] == {
+        "path": K1_DIR,
+        "answers_sha256": file_sha256(root / K1_DIR / "answers.jsonl"),
+    }
+    assert {row["condition"] for row in key[1:]} == {"K1", "K2"}
+    assert len(key[1:]) == 8
+
+
+def test_refuses_an_undeclared_rename(root, capsys):
+    assert run(two_k1_records(root), root=root, seed_source=lambda: 1) == 1
+    assert "--recorded K2=K1" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()
+
+
+def test_refuses_a_declaration_that_does_not_match_the_record(root, capsys):
+    argv = [*two_k1_records(root), "--recorded", "K2=B0"]
+    assert run(argv, root=root, seed_source=lambda: 1) == 1
+    err = capsys.readouterr().err
+    assert "K2=B0" in err and "K1" in err
+    assert not (root / OUT_DIR).exists()
+
+
+def test_refuses_a_declaration_for_a_run_not_given(root, capsys):
+    argv = [*two_k1_records(root), "--recorded", "K3=K1"]
+    assert run(argv, root=root, seed_source=lambda: 1) == 1
+    assert "K3" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()
+
+
+def test_refuses_the_same_declaration_twice(root, capsys):
+    argv = [*two_k1_records(root), "--recorded", "K2=K1", "--recorded", "K2=B0"]
+    assert run(argv, root=root, seed_source=lambda: 1) == 1
+    assert "重複" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()
+
+
+@pytest.mark.parametrize("bad", ["K2", "=K1", "K2=", "K2=../x"])
+def test_refuses_a_malformed_recorded_argument(root, capsys, bad):
+    argv = [*two_k1_records(root), "--recorded", bad]
+    assert run(argv, root=root, seed_source=lambda: 1) == 1
+    assert "--recorded" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()
+
+
+def test_hides_the_recorded_condition_from_the_pack(root, capsys):
+    # 記録での条件名も、束に出れば採点者に条件が分かる
+    digest = file_sha256(root / "evaluations/kukai/questions.yaml")
+    write(root / K1_DIR / "answers.jsonl", answers_jsonl("K1", digest, content=lambda q, r: "K1 と申す"))
+    argv = ["--run", f"B1={B1_DIR}", "--run", f"K2={K1_DIR}", "--recorded", "K2=K1", "--out", OUT_DIR]
+    assert run(argv, root=root, seed_source=lambda: 1) == 1
+    assert "伏せ" in capsys.readouterr().err
+    assert not (root / OUT_DIR).exists()

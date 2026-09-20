@@ -375,3 +375,15 @@ class TestStripCitations:
         ]
         assert stripped.header == original.header
         assert [a.content for a in original.answers] == ["答え [1]。", "答え。"]
+
+
+def test_relabel_run_renames_every_answer_and_keeps_the_original():
+    from scripts.lib.blinding import RecordedAnswer, RunRecord, relabel_run
+
+    answers = (RecordedAnswer(condition="K1", question_id="F01", repeat=1, content="答", line=2),)
+    run = RunRecord(header={"condition": "K1", "repeats": 1}, answers=answers)
+    renamed = relabel_run(run, "K2")
+    assert renamed.header["condition"] == "K2"
+    assert [a.condition for a in renamed.answers] == ["K2"]
+    assert run.header["condition"] == "K1" and run.answers[0].condition == "K1"
+    assert renamed.answers[0].content == "答" and renamed.answers[0].line == 2

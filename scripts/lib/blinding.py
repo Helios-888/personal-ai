@@ -128,6 +128,19 @@ def _without_citations(answer: RecordedAnswer) -> RecordedAnswer:
     return replace(answer, content=content, citations_removed=answer.citations_removed + count)
 
 
+def relabel_run(run: RunRecord, condition: str) -> RunRecord:
+    """記録に付いた条件名を、束での名前に置き換えた写しを返す（元の記録は変えない）。
+
+    run_eval の条件名は B0・B1・K1 しか無いので、設定を変えた前後の記録が同じ名で残る。
+    束と対応表ではそれを別の名で呼ぶ（blind_pack の --recorded）。名が同じなら何も変わらない。
+    """
+    return replace(
+        run,
+        header={**run.header, "condition": condition},
+        answers=tuple(replace(answer, condition=condition) for answer in run.answers),
+    )
+
+
 def load_scoring_questions(questions_text: str, rubric_text: str) -> list[ScoringQuestion]:
     """問いと正解の要点（questions.yaml）に、問いごとの採点のしかた（rubric.yaml）を合わせる。"""
     entries = yaml.safe_load(questions_text)["questions"]

@@ -14,6 +14,11 @@
   並べ替えの種は OS の乱数から作り、key.jsonl に記録する。
   回答の本文は、引用の番号 [n] を前の空白ごと全回答から除いて載せ、除いた数を key.jsonl に残す（元の記録は変えない）。
   ほかの検索の印（<source>、SAT の行 ID、資料のファイル名）が残る回答があれば止まる。
+
+  記録に付いた条件名（run_eval の --condition）と束での名前が違うときは、取り違えを防ぐため
+  「--recorded 束での名前=記録での条件」で宣言する。run_eval の条件名は B0・B1・K1 しか無いので、
+  同じ K1 で取った 2 つの記録を比べるときに要る（例：--run K2=evaluations/kukai/runs/… --recorded K2=K1）。
+  宣言は key.jsonl の sources に recorded_condition として残り、記録での条件名も束から伏せる。
 """
 import argparse
 import hashlib
@@ -36,6 +41,7 @@ from scripts.lib.blinding import (  # noqa: E402
     key_lines,
     load_scoring_questions,
     read_run,
+    relabel_run,
     render_guide,
     render_sheet,
     strip_run_citations,
@@ -65,6 +71,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="条件ごとの記録から、条件名を伏せた採点用の束と対応表を作る")
     parser.add_argument("--run", action="append", required=True, metavar="条件=記録フォルダ",
                         help="条件名と記録フォルダ（リポジトリ直下から）。2 つ以上渡す（例 --run B1=... --run K1=...）")
+    parser.add_argument("--recorded", action="append", metavar="条件=記録での条件",
+                        help="記録に付いた条件名が束での名前と違うときに宣言する（例 --recorded K2=K1）")
     parser.add_argument("--out", required=True, help="束と対応表を作るフォルダ（既にあれば止まる）")
     parser.add_argument("--questions", default=DEFAULT_QUESTIONS, help="凍結した評価セットのパス")
     parser.add_argument("--rubric", default=DEFAULT_RUBRIC, help="凍結した採点基準のパス")
@@ -86,8 +94,12 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
     rubric_text = read_frozen_text(rubric_path)
     questions_sha256 = read_record(record_path(questions_path))[0]
     records = parse_runs(args.run)
-    loaded = {condition: load_run(root, folder, condition, questions_sha256) for condition, folder in records.items()}
-    runs = {condition: strip_run_citations(record) for condition, (record, _) in loaded.items()}
+    recorded = parse_recorded(args.recorded or [], records)
+    loaded = {condition: load_run(root, folder, recorded.get(condition, condition), questions_sha256, condition)
+              for condition, folder in records.items()}
+    # 対応表の条件名は束での名前にそろえる（記録に付いた名ではない。--recorded で宣言したとき両者は違う）
+    runs = {condition: relabel_run(strip_run_citations(record), condition)
+            for condition, (record, _) in loaded.items()}
     removed = {condition: sum(a.citations_removed for a in run.answers) for condition, run in runs.items()}
     settings = same_settings(runs)
     check_committed_runs(runs)
@@ -104,14 +116,18 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
         **{f"{g.question.id}.md": render_sheet(g, labels[g.question.kind]) for g in groups},
     }
     folders = [Path(folder) for folder in records.values()]
-    hidden = [*records, *(f.name for f in folders), *(f.parent.name for f in folders), KEY_FILE]
+    hidden = [*records, *recorded.values(), *(f.name for f in folders), *(f.parent.name for f in folders), KEY_FILE]
     check_hidden(files, [word for word in hidden if word])  # 最上位のフォルダは親の名が空になる
 
     meta = {
         "rubric_sha256": read_record(record_path(rubric_path))[0],
         "settings": settings,
         "sources": {
-            condition: {"path": records[condition], "answers_sha256": digest}
+            condition: {
+                "path": records[condition],
+                **({"recorded_condition": recorded[condition]} if condition in recorded else {}),
+                "answers_sha256": digest,
+            }
             for condition, (_, digest) in loaded.items()
         },
         "citations": {"pattern": CITATION.pattern, "removed": removed},  # 束の本文と元の記録の違いはこれだけ
@@ -127,6 +143,8 @@ def build_pack(args: argparse.Namespace, root: Path, seed_source: Callable[[], i
     print(f"pack: {display(out / PACK_DIR, root)}（手引き 1 枚＋採点票 {len(groups)} 枚、回答 {answers} 件）")
     print(f"key:  {display(out / KEY_FILE, root)}（採点が終わるまで開かない）")
     print(f"除いた引用の番号: {'、'.join(f'{c} {n} 個' for c, n in removed.items())}")
+    if recorded:
+        print(f"記録での条件名: {'、'.join(f'{name} は {c}' for name, c in recorded.items())}")
     return 0
 
 
@@ -145,8 +163,30 @@ def parse_runs(values: list[str]) -> dict[str, str]:
     return records
 
 
-def load_run(root: Path, folder: str, condition: str, questions_sha256: str) -> tuple[RunRecord, str]:
-    """記録を 1 回だけ読み、その同じバイト列から中身と指紋を得る。"""
+def parse_recorded(values: list[str], records: dict[str, str]) -> dict[str, str]:
+    """「束での名前=記録での条件」の並びを、束での名前 → 記録での条件にする。
+
+    run_eval の条件名は B0・B1・K1 しか無い。同じ K1 で取った 2 つの記録（設定を変えた前後）を
+    比べるときは、片方を束で別の名（K2）と呼ぶ。記録の書き換えはせず、ここで宣言する。
+    """
+    recorded: dict[str, str] = {}
+    for value in values:
+        name, separator, condition = value.partition("=")
+        if not separator or not LABEL_PATTERN.fullmatch(name) or not LABEL_PATTERN.fullmatch(condition):
+            raise ValueError(f"--recorded は「条件=記録での条件」の形で渡してください: {value}")
+        if name in recorded:
+            raise ValueError(f"--recorded の条件 {name} が重複しています")
+        if name not in records:
+            raise ValueError(f"--recorded の {name} は --run で渡していません")
+        recorded[name] = condition
+    return recorded
+
+
+def load_run(root: Path, folder: str, condition: str, questions_sha256: str, name: str = "") -> tuple[RunRecord, str]:
+    """記録を 1 回だけ読み、その同じバイト列から中身と指紋を得る。
+
+    condition は記録に付いているはずの条件名（--recorded の宣言があればその値）、name は束での名前。
+    """
     data = (root / folder / ANSWERS_FILE).read_bytes()
     try:
         record = read_run(data.decode("utf-8"))
@@ -154,7 +194,10 @@ def load_run(root: Path, folder: str, condition: str, questions_sha256: str) -> 
         raise ValueError(f"{folder}/{ANSWERS_FILE}: {error}") from error
     actual = record.header.get("condition")
     if actual != condition:
-        raise ValueError(f"--run {condition}= に渡した記録（{folder}）の条件は {actual} です。{condition} の記録を渡してください")
+        if name and name != condition:
+            raise ValueError(f"--recorded {name}={condition} と宣言しましたが、記録（{folder}）の条件は {actual} です")
+        raise ValueError(f"--run {condition}= に渡した記録（{folder}）の条件は {actual} です。{condition} の記録を渡してください"
+                         f"（わざと別の名で呼ぶなら --recorded {condition}={actual} と宣言します）")
     if record.header.get("questions_sha256") != questions_sha256:
         raise ValueError(f"{folder} は、いまの questions.yaml とは別の評価セットで取った記録です")
     return record, hashlib.sha256(data).hexdigest()
