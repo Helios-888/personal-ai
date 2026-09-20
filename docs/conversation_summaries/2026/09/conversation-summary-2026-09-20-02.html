@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会話まとめ 2026-09-20-02 — Phase 4 集計完了と Phase 5 本番取得</title>
+<style>
+  body { font-family: "Segoe UI", "Yu Gothic UI", sans-serif; margin: 24px; color: #222; background: #fafafa; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-left: 6px solid #3b82f6; padding-left: 10px; background: #eef3fb; padding: 6px 10px; }
+  h3 { margin-top: 20px; color: #1e3a8a; border-bottom: 1px dashed #93c5fd; padding-bottom: 3px; }
+  h4 { margin-top: 14px; color: #1e40af; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #e5e7eb; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+  .ok   { background: #d1fae5 !important; }
+  .warn { background: #fef3c7 !important; }
+  .ng   { background: #fee2e2 !important; }
+  .info { background: #dbeafe !important; }
+  .muted { color: #666; }
+  .pos { color: #059669; font-weight: bold; }
+  .neg { color: #dc2626; font-weight: bold; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: "Consolas", "Courier New", monospace; }
+  pre  { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.45; }
+  ul, ol { line-height: 1.8; }
+
+  .headline-card { background: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 12px 0 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .headline-card .label { font-size: 12px; color: #1e40af; letter-spacing: 0.05em; }
+  .headline-card .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+  .conclusion { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+
+  .dialog { margin: 14px 0; }
+  .dialog-block { margin: 10px 0; padding: 10px 14px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; }
+  .dialog-block.master { border-left: 5px solid #2563eb; background: #eff6ff; }
+  .dialog-block.ai { border-left: 5px solid #6b7280; background: #f9fafb; }
+  .dialog-num { display: inline-block; min-width: 36px; font-family: "Consolas", monospace; font-size: 11px; color: #6b7280; margin-right: 6px; }
+  .speaker-master { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .speaker-ai     { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .dialog-body { margin-top: 6px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; }
+  .elide { display: inline-block; padding: 1px 8px; margin: 2px 0; background: #f3f4f6; color: #6b7280; font-style: italic; font-size: 12px; border-radius: 3px; border: 1px dashed #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>会話まとめ 2026-09-20-02</h1>
+<div class="headline-card">
+  <div class="label">HEADLINE</div>
+  <div class="value">Phase 4 の封印を解いて集計し、Phase 5 の年譜投入と検索拡張まで本番取得</div>
+</div>
+<p class="meta">実施日: 2026-09-20 / リポジトリ: Helios-888/personal-ai (llm01 /home/aiadmin/personal-ai) / ブランチ: main</p>
+
+<h2>セッション概要</h2>
+
+<h3>起点</h3>
+<ul>
+  <li>Phase 4（Knowledge 投入）の採点と判定は封印済みだが、<strong>集計（tally）は未実行</strong>。条件別の成績は誰も見ていない状態。</li>
+  <li>前回の申し送り: (a) 参考値の実装 → (b) 集計 → (c) 文書更新 → (d) push → (e) Phase 5。</li>
+  <li>作業場は clean、GitHub と一致（<code>0dcb43f</code>）。</li>
+</ul>
+
+<h3>進行段取り</h3>
+<ol>
+  <li>現状確認と、Open WebUI でのモデル選択問題の切り分け</li>
+  <li>参考値（語の説明 4 回答を除く数え方）の TDD 実装</li>
+  <li>集計実行 — <strong>Phase 4 の条件が開く</strong></li>
+  <li>Phase 4 結果の文書化と GitHub 反映</li>
+  <li>伝記の問いへの対処方針を協議 → ホールドアウト解放の決断</li>
+  <li>Phase 5 設計書作成</li>
+  <li>手順 2〜7 を実行（解放・年譜作成・投入・先行確認・検索拡張・本番）</li>
+</ol>
+
+<h2>各段階のサマリ</h2>
+
+<h3>段階 1: Open WebUI でのモデル選択問題</h3>
+<ul>
+  <li>旦那様が「普通のAIと同じ回答が返る」と報告。API から <code>kukai-ai</code> に直接問うと空海として正答したため、<strong>モデル登録は正常</strong>と確認。</li>
+  <li>旦那様が自己解決: 基底モデル <code>Qwen3.8-27B (Kukai base, 64k, no-think)</code> を選んでいた。</li>
+  <li>基底モデルは空海AI の土台であり、かつ評価の比較対象でもあるため削除不可と回答。現状維持で決着。</li>
+</ul>
+
+<h3>段階 2: 参考値の実装（TDD）</h3>
+<ul>
+  <li>判定役 4 体のうち 1 体だけが「語の説明」を付け足しに数えた食い違い（F01-a/c/f・F08-c）。</li>
+  <li>4 件とも判定に挙がったのは語の説明 1 つだけと確認 → <strong>分母は変えず、数える側から外す</strong>実装に修正。</li>
+  <li>除外リストは採点フォルダの <code>faithfulness/excluded.yaml</code> に置き、報告書に指紋を残す方式。</li>
+</ul>
+
+<h3>段階 3: Phase 4 集計 — 条件が開く</h3>
+<div class="conclusion">
+<strong>Knowledge は明確に効いたが、正確さの関門は未達。</strong>内容 10 問の正答 1/10 → 6/10（基準 7 以上）、付け足し 22/30 → 9/30（基準 0）。
+</div>
+<ul>
+  <li>旦那様の決め（品質の関門を満たさないまま進めない）に従い、文書更新の前に報告して判断を仰いだ。</li>
+  <li>残る弱点を特定: 内容は F04・F08・F09・F10 の 4 問、伝記は F05・F13・F14 が 3 回とも過剰拒否。</li>
+  <li><strong>土俵の注意を発見</strong>: B1 と K1 は常時層も違っていた（2,031 対 2,297 トークン）。F11・F12 の改善は目録への 6 点追加で説明でき、資料の効果ではない。文書に明記。</li>
+</ul>
+
+<h3>段階 4: 伝記の問いへの対処 — ホールドアウト解放の決断</h3>
+<ul>
+  <li>原因は資料不足ではなく「<strong>書いた材料をモデルに渡していない</strong>」こと。episodes 0004・0008 に答えが出典つきで存在。</li>
+  <li>旦那様の提案「全部は渡して、問題を変えるのは？」から議論。</li>
+  <li>当方が「解放後の数値を同じ欄に載せない」ことを<em>条件</em>として提示 → 旦那様の反問により<strong>過剰な条件付けであったと撤回</strong>。</li>
+  <li>合わせ込みの危険（外している 4 問を見ながら調整する）は当方の見落としとして認め、新評価セット案を提示。</li>
+  <li>旦那様の決定: <strong>全部渡す + 2 問を成績から外す注記のみ。新問題は作らない（手間に見合わない）。</strong></li>
+  <li>代替の防御として「設定は結果を見る前に理由で決め、測るのは一度きり」を設計書に明記。</li>
+</ul>
+
+<h3>段階 5: Phase 5 手順 2〜3（解放と年譜作成）</h3>
+<ul>
+  <li>episode 0001 福州・0005 高野山を通常側へ移動。伏せは 0006 のみに。</li>
+  <li>集計側に「答えを渡した後の問い」の扱いを実装（<code>holdout-released.yaml</code> があれば成績表から外し注記化）。</li>
+  <li>年譜 <code>biography__年譜.md</code> を作成（23 項目・6,224 字）。</li>
+  <li><strong>設計からの意図的な逸脱</strong>: F05 用の事実は出どころが評価の正解表だったため<span class="ng">年譜に入れなかった</span>。合わせ込みの禁止に反するため。</li>
+  <li>BIO.020 に「空海が土木技術で満濃池を修築した」通説の否定を明記。</li>
+</ul>
+
+<h3>段階 6: 手順 4〜5（投入と先行確認）</h3>
+<ul>
+  <li>『御遺告』の削除箇所（T2431_.77.0409b21–0409c08）を SAT から取り直して復元。差分は 17 行と取得日のみ。</li>
+  <li>規則 2 を「著作に無い」と「年譜に無い」に言い分ける形へ修正。system.md に「高野山を開き、」を復元。</li>
+  <li>束の 1 点差し替え機能（<code>--replace</code>）を TDD で追加し、10 ファイル構成で投入完了。</li>
+  <li><strong>引き返し点の成果</strong>: 伝記 5 問のうち年譜が届いたのは F14 のみ（1/5）。届いた F14 は正答。年譜は作り直さず手順 6 へ。</li>
+  <li>設計の読み方を訂正: 変更 A（年譜）は変更 B（枠拡張）に<strong>依存する</strong>。</li>
+</ul>
+
+<h3>段階 7: 手順 6〜7（検索拡張と本番）</h3>
+<ul>
+  <li>TOP_K を 3 → 10 に変更。全体設定のため<strong>変更前後で全 67 項目を照合し、動いたのは TOP_K だけ</strong>と確認。</li>
+  <li>F13 で効果確認: 渡された箇所 10、年譜が 6 番目に到達、返書の文言つきで正答。</li>
+  <li>本番 K2 取得完了（96 回答、枠切れ 0、全回答に 10 箇所）。</li>
+</ul>
+
+<h2>数値検証</h2>
+
+<h3>Phase 4 集計結果（2026-09-20、条件を開いた）</h3>
+<table>
+  <tr><th>指標</th><th>B1（資料なし）</th><th>K1（資料あり）</th><th>関門</th></tr>
+  <tr><td>内容 10 問 正答（多数決）</td><td>1/10</td><td class="pos">6/10</td><td class="ng">7 以上 — 未達</td></tr>
+  <tr><td>内容 10 問 付け足し・書き換え</td><td>22/30</td><td class="pos">9/30</td><td class="ng">0 — 未達</td></tr>
+  <tr><td>同（参考、語の説明を除く）</td><td>22/30</td><td>5/30</td><td class="ng">0 — 未達</td></tr>
+  <tr><td>過剰拒否（factual 回答単位）</td><td>20/45</td><td>15/45</td><td>—</td></tr>
+  <tr><td>trap 正しく退けた（多数決）</td><td>10/10</td><td>10/10</td><td class="ok">9 以上 — 満たす</td></tr>
+  <tr><td>架空引用（厳しい数え方）</td><td>0/90</td><td>0/90</td><td class="ok">0 — 満たす</td></tr>
+  <tr><td>採点者間の一致（罠 10 問）</td><td colspan="2">59/60（98.3%）</td><td class="ok">9 割以上</td></tr>
+</table>
+
+<h3>Phase 5 の変更と確認</h3>
+<table>
+  <tr><th>項目</th><th>変更前</th><th>変更後</th><th>確認</th></tr>
+  <tr><td>常時層のトークン数</td><td>2,297</td><td>2,373</td><td>上限 5,000 に対し余裕</td></tr>
+  <tr><td>束のファイル数</td><td>9</td><td>10</td><td>リポジトリと一致</td></tr>
+  <tr><td>TOP_K（渡す箇所）</td><td>3</td><td>10</td><td class="ok">67 項目中 1 項目のみ変化</td></tr>
+  <tr><td>年譜が届いた割合（伝記 5 問・枠 3）</td><td>—</td><td>1/5</td><td class="warn">F14 のみ</td></tr>
+  <tr><td>本番の入力トークン</td><td>約 5,580</td><td>約 12,400</td><td>枠切れ 0/96</td></tr>
+  <tr><td>年譜が届いた回答（本番）</td><td>—</td><td>12/96</td><td class="warn">F10・F13・F14・T05</td></tr>
+  <tr><td>テスト件数</td><td>580</td><td>604</td><td class="ok">カバレッジ 98%</td></tr>
+</table>
+
+<h2>最終構成</h2>
+
+<h3>新規ファイル</h3>
+<ul>
+  <li><code>docs/specs/2026-09-20-phase5-design.md</code> — Phase 5 設計（方針・変更 2 つ・成功基準・撤退条件・先行確認結果）</li>
+  <li><code>evaluations/kukai/runs/README.md</code> — Phase 4 の結果（指標・関門・土俵の注意）</li>
+  <li><code>evaluations/kukai/scoring/2026-09-19-phase4/tally.md</code> — 集計の全文</li>
+  <li><code>evaluations/kukai/scoring/2026-09-19-phase4/faithfulness/excluded.yaml</code> — 参考値のための除外宣言</li>
+  <li><code>knowledge/kukai/biography/biography__年譜.md</code> — 23 項目・6,224 字</li>
+  <li><code>evaluations/kukai/preflight/2026-09-20-K1-biography/judgment.md</code> — 引き返し点の判定</li>
+  <li><code>evaluations/kukai/runs/2026-09-20-K1-phase5-topk10/</code> — 本番 96 回答</li>
+</ul>
+
+<h3>編集</h3>
+<ul>
+  <li><code>scripts/lib/tally.py</code> / <code>tally_report.py</code> / <code>scripts/tally.py</code> — 参考値、解放したホールドアウトの扱い</li>
+  <li><code>scripts/build_knowledge.py</code> — <code>--replace</code>（束の 1 点差し替え）</li>
+  <li><code>scripts/lib/openwebui_client.py</code> — <code>remove_file_from_knowledge</code>、<code>update_retrieval_config</code></li>
+  <li><code>agents/kukai/</code> — agent.yaml（年譜追加）、rules.md（規則 2・4）、system.md（高野山を復元）、episodes（0001・0005 を解放）</li>
+  <li><code>evaluations/kukai/knowledge-exclusions.yaml</code> — cut を空にし、復元箇所を kept に登録</li>
+  <li><code>README.md</code> — フェーズ表（Phase 4 完了・関門未達）</li>
+</ul>
+
+<h2>旦那様の重要な気づき</h2>
+<ol>
+  <li><strong>「このモデルは必要か？」</strong> — 基底モデルの位置づけを確認。土台であり比較対象でもあると判明し、現状維持を決定。</li>
+  <li><strong>「全部は渡して、問題を変えるのは？」</strong> — ホールドアウトを測定の足場と割り切り、実用を優先する提案。当方が見落としていた合わせ込みの論点を引き出した。</li>
+  <li><strong>「報告書の同じ欄に…なぜ問題なのだ？」</strong> — 当方が「守っていただきたいこと」と条件の形で提示したことへの反問。原因が記録され本人が理解している以上、誤読の危険は小さいとの指摘は妥当で、当方は過剰な条件付けを撤回した。</li>
+  <li><strong>「新しい問題作成は手間がかかる」</strong> — 15 問の裏取り（半日〜1 日）と得られるものを比べ、注記のみで済ませる判断。</li>
+  <li><strong>「手順の区切りが良いところで、会話を区切ります」</strong> — 長工程を区切りごとに確認する進め方の指定。</li>
+</ol>
+
+<h2>次セッションの推奨手順</h2>
+
+<h3>残作業</h3>
+<ul>
+  <li><strong>手順 8: 採点と集計</strong>（半日〜1 日）。本番 96 回答が未採点。</li>
+</ul>
+
+<h3>次フェーズの手順</h3>
+<ol>
+  <li>盲検の束を作る（<code>scripts/blind_pack.py</code>）。条件名は K1（Phase 4）と K2（今回）。</li>
+  <li>一次採点: Opus 5 のサブエージェントを<strong>1 体ずつ</strong>起動（同時起動禁止）。</li>
+  <li>2 人目の採点: GPT-6 Astra に罠 10 問。旦那様の ChatGPT への貼り付けが 1 回必要。</li>
+  <li>付け足し・書き換えの判定（盲検でない、別の回で実施）。</li>
+  <li>封印 → <code>scripts/tally.py</code> で集計。<code>holdout-released.yaml</code> を置いて H01・H02 を成績から外す。</li>
+</ol>
+
+<h3>合否の線（本番前に凍結済み）</h3>
+<ul>
+  <li><strong>成功</strong>: 伝記 5 問の過剰拒否 9 回答 → 0、かつ内容 10 問の正答が 6 問を下回らない。</li>
+  <li><strong>撤退</strong>: 内容 10 問の正答が 5 問以下 / trap が 8/10 以下 / 架空引用が 1 件でも出る → TOP_K を 3 に戻す。</li>
+  <li>付け足しが内容 10 問で 15/30 を超えたら戻して原因記録。</li>
+</ul>
+
+<h3>学び</h3>
+<ul>
+  <li><strong>引き返し点は機能した。</strong> 年譜投入直後に「検索で拾われるか」だけを見たことで、96 回答を取る前に「年譜単独では効かない」と分かった。</li>
+  <li><strong>正解表を資料に書き写さない。</strong> F05 用の事実の出どころが評価の正解表だと気づき、年譜から外した。</li>
+  <li><strong>全体設定の変更は前後照合とセット。</strong> 67 項目を突き合わせ、意図した 1 項目だけが動いたことを確認してから進む。</li>
+  <li><strong>条件の形で提示するものを選ぶ。</strong> 誤読の危険が小さく本人が理解している事柄を「守ってほしいこと」として出すのは過剰。</li>
+</ul>
+
+<h2>会話ログ</h2>
+<div class="dialog">
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#1</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">再開しよう。とりあえず現状を確認して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#2</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">作業場は clean、GitHub と一致（0dcb43f）。集計は未実行で条件別の結果は未確認。残り 4 手。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#3</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">使用はOpenWebUIで使用する事を想定しているが、試す事ができるのはあとどれぐらいのステップが必要？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#4</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">追加ステップはゼロ。同期点検が noop で、Knowledge 付きの「空海」が既に稼働中。ただし関門の合否は未判定。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#5</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">そのまま質問したら普通のAIと同じ回答が返ってくる。設定方法などがある？
+
+私はローカルサーバー llm01 上で動作する執事アシスタントであり、AIモデルです。
+AIは「著者」として本を執筆する存在ではないため、著した書物はございません。
+
+旦那のローカルAIサーバー構築やAI駆動開発に関する情報整理、技術資料の作成など、具体的な支援が必要であればお手伝いいたします。</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#6</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">API から kukai-ai に問うと空海として著作 11 点を正答。登録は正常で、選択中のモデルが別物。New Chat で「空海」を選ぶよう案内。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#7</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">正しく返ってきた。モデルをQwen3.8-27B (Kukai base, 64k, no-think)にしてしまっていた。このモデルは必要か？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#8</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">必要。空海AI の土台そのものであり、かつ「指示文なしの素のモデル」として評価の比較対象でもある。既定モデルを「空海」にする回避策を提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#9</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">とりあえず、そのままで良い。作業を再開して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#10</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">参考値を TDD で実装後、集計を実行。<strong>内容 10 問の正答 1/10 → 6/10、付け足し 22/30 → 9/30。ただし関門（正答 7 以上・付け足し 0）は未達。</strong>品質の関門の決めに従い、文書更新の前に判断を仰ぐ。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#11</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">伝記の問い（生涯の出来事）答えられるようにするにはどうすれば良い？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#12</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">資料不足ではなく、書いた材料（episodes）をモデルに渡していないのが原因。年譜を作って束に足す。危険はホールドアウト汚染と検索枠の食い合い。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#13</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">もう少し分かりやすく説明して</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#15</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">全部は渡して、問題を変えるのは？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#16</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">賛成。ホールドアウトの数値は元々「参考値」で結論に使わない扱いのため失うものは小さい。問題の差し替えは不要。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#17</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">守っていただきたいことの意味がわからない。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#19</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">報告書の同じ欄に、今までと同じ書き方で並ぶことがなぜ問題なのだ？そうなる意味原因が分かっている事であるし、そもそも試験問題を全て変えても良いと思っているが。</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#20</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">仰るとおりで、条件の形で提示したのは過剰。撤回。また問題を全部変える案には当方が見落とした根拠（外している 4 問への合わせ込みを見分けられない）があると認め、今の問題は物差しとして残し確認用に新しい 15 問を作る案を提示。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#21</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">「全部渡す」のと、2 問の行に「答えを渡した後の問い」と一言添え、成績の一覧からは外すだけで良いならそっちで良い。新しい問題作成は手間がかかる</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#22</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">それで済む。減るのは新問題作成の半日〜1 日。代替として「設定は結果を見る前に理由で決め、測るのは一度きり」を設計に明記する。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#23</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">はい。着手して下さい。</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#24</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">Phase 4 の結果を 3 文書に記録。常時層も B1/K1 で違っていた（2,031 対 2,297）ことと、RAG テンプレートの付け足し誘発文を Phase 5 の疑い筆頭として明記。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#25</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">GitHub へ反映をして継続して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#26</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">push 完了（0dcb43f..ba54a36）。Phase 5 設計書を作成。変更は年譜投入と枠 3→10 の 2 つ、316 チャンク中 3 は 1% 未満という理由で 10 を事前決定。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#27</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">開始して。手順の区切りが良いところで、会話を区切ります</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#28</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">手順 2 完了。episode 2 件を解放、伏せは 0006 のみ。集計側に「答えを渡した後の問い」の扱いを実装。テスト 598 件。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#29</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">まだコンテキストに余裕はありそうなので継続して下さい</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#30</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">手順 3 完了。年譜 23 項目を作成。F05 用の事実は出どころが評価の正解表だったため意図的に除外。満濃池の通説否定を BIO.020 に明記。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#31</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">続けてください</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#32</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">手順 4 の準備完了。『御遺告』復元（差分 17 行のみ）、規則 2・4 修正、system.md に高野山を復元。投入は安全装置で停止中、『御遺告』1 点の差し替え可否を要判断。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#33</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">進んで良いです</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#34</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">投入・同期完了（10 ファイル）。<strong>先行確認で年譜が届いたのは 5 問中 1 問のみ</strong>。届いた F14 は正答。年譜は作り直さず枠拡張へ。変更 A は B に依存すると設計を訂正。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#35</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">実行して下さい</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#36</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">TOP_K を 3→10 に変更、全 67 項目照合で動いたのは 1 項目のみ。F13 で効果確認（年譜が 6 番目に到達、返書の文言つきで正答）。本番開始。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#37</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">とりあえず終了までまつ。あとどれぐらいかかる？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#38</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">残り 5 問で 1〜2 分。完走後: 96 回答、枠切れ 0、全回答に 10 箇所、年譜到達 12/96（F10・F13・F14・T05）。採点は未実施。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#39</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">会話を記録してGitHub へ反映くてください。その後一旦切ります</div>
+  </div>
+
+</div>
+
+</body>
+</html>
