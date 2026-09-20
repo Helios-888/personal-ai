@@ -87,6 +87,12 @@ class OpenWebUIClient:
     def get_retrieval_config(self) -> dict:
         return self._get("/api/v1/retrieval/config")
 
+    def update_retrieval_config(self, changes: dict) -> dict:
+        """検索の全体設定を変える。渡した項目だけを送る（Open WebUI 全体に効くので、変更の前後を必ず突き合わせる）。"""
+        if not changes:
+            raise ValueError("update_retrieval_config に変更が渡されていません")
+        return self._post("/api/v1/retrieval/config/update", dict(changes))
+
     def get_embedding_config(self) -> dict:
         return self._get("/api/v1/retrieval/embedding")
 

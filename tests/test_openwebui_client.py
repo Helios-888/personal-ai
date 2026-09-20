@@ -228,3 +228,19 @@ def test_remove_file_from_knowledge_checks_the_knowledge_id():
     with pytest.raises(ValueError):
         client.remove_file_from_knowledge("../models", "f1")
     assert session.calls == []
+
+
+def test_update_retrieval_config_posts_only_what_it_was_given():
+    client, session = make_client(FakeResponse(200, {"status": True, "TOP_K": 10}))
+
+    client.update_retrieval_config({"TOP_K": 10})
+    method, url, _, _, body = session.calls[0]
+    assert (method, url, body) == ("POST", "http://owui:3000/api/v1/retrieval/config/update", {"TOP_K": 10})
+
+
+def test_update_retrieval_config_refuses_an_empty_change():
+    client, session = make_client()
+
+    with pytest.raises(ValueError):
+        client.update_retrieval_config({})
+    assert session.calls == []
