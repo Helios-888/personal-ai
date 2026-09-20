@@ -165,3 +165,28 @@ def test_the_gate_says_whether_the_reference_reading_changes_it():
 def test_no_reference_rows_without_an_exclusion():
     report = render_p4(generic.run(faithful=generic.faithful()))
     assert "参考、語の説明を除く" not in report and "を除く読み" not in report
+
+
+# --- ホールドアウトの解放（2026-09-20） ---------------------------------------------------
+
+
+def render_released(*tallies, released="2026-09-20") -> str:
+    return render_report(P4_HEADER, list(tallies), [], INPUTS, "c0ffee", holdout_released=released)
+
+
+def test_a_released_holdout_is_not_listed_as_a_score():
+    report = render_released(generic.run())
+    assert "| ホールドアウト 一致（回答単位） |" not in report
+    assert "ホールドアウト 一致（回答単位）・B1" not in report
+
+
+def test_a_released_holdout_keeps_its_numbers_as_a_note_with_the_date():
+    report = render_released(generic.run())
+    assert "答えを渡した後の問い" in report and "2026-09-20" in report
+    assert "B1 2/3" in report and "K1 3/3" in report
+
+
+def test_without_a_release_the_holdout_row_stays():
+    report = render_p4(generic.run())
+    assert "| ホールドアウト 一致（回答単位） |" in report
+    assert "答えを渡した後の問い" not in report

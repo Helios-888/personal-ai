@@ -192,7 +192,9 @@ def test_repository_episodes_all_parse_and_sit_in_the_right_folder():
 
     assert len(episodes) >= 8
     assert folder_mismatches(episodes) == []
-    assert sum(1 for e in episodes if e.holdout) == 3
+    # 2026-09-20、利用者の判断でホールドアウトを解放した（Phase 5 設計書「方針」1）。
+    # 伏せたままなのは 0006 泰範だけで、これは根拠不足で使わない episode である（H01・H02 の出どころではない）
+    assert sum(1 for e in episodes if e.holdout) == 1
 
 
 def test_repository_holdout_judgements_have_not_leaked_into_the_always_on_layer():

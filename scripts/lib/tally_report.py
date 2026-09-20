@@ -46,6 +46,7 @@ CATEGORY_NAMES = {
     "not_found": "見当たらない",
 }
 DASH = "—"
+HOLDOUT_METRICS = ("holdout_agree",)  # 解放後は成績に数えない（Phase 5 設計書「方針」1）
 
 
 def _row(cells: list[str]) -> str:
@@ -61,18 +62,19 @@ def _plain(text: str) -> str:
     return text.replace("\n", " ").replace("|", "｜")
 
 
-def _names(t: GraderTally) -> list[str]:
-    """その集計にある指標（METRIC_NAMES の順）。"""
+def _names(t: GraderTally, released: str = "") -> list[str]:
+    """その集計にある指標（METRIC_NAMES の順）。ホールドアウトを解放していれば、その指標は成績から外す。"""
     present = t.metrics[t.conditions[0]]
-    return [name for name in METRIC_NAMES if name in present]
+    return [name for name in METRIC_NAMES
+            if name in present and not (released and name in HOLDOUT_METRICS)]
 
 
 def render_report(header: dict, tallies: list[GraderTally], notes: list[str],
-                  inputs: list[tuple[str, str]], commit: str) -> str:
+                  inputs: list[tuple[str, str]], commit: str, holdout_released: str = "") -> str:
     official = tallies[0]
     parts = [
         _intro(header, tallies, notes, inputs, commit),
-        _metrics(tallies),
+        _metrics(tallies, holdout_released),
         _conclusions(tallies),
         _ceiling(tallies),
         _gate(official),
@@ -81,7 +83,7 @@ def render_report(header: dict, tallies: list[GraderTally], notes: list[str],
         *(_majority_differences(official, other) for other in tallies[1:]),
         *(_fictitious(t) for t in tallies if t.fictitious),
         _faithfulness(official),
-        _appendix(tallies),
+        _appendix(tallies, holdout_released),
         _how_to_trace(),
     ]
     return "\n".join(line for part in parts for line in part) + "\n"
@@ -114,13 +116,23 @@ def _metric_cell(t: GraderTally, condition: str, name: str) -> str:
     return count.text() if count else DASH
 
 
-def _metrics(tallies: list[GraderTally]) -> list[str]:
+def _metrics(tallies: list[GraderTally], released: str = "") -> list[str]:
     head = ["指標", *(f"{c}（{t.name}）" for t in tallies for c in t.conditions)]
     rows = [[METRIC_NAMES[name], *(_metric_cell(t, c, name) for t in tallies for c in t.conditions)]
-            for name in _names(tallies[0])]
+            for name in _names(tallies[0], released)]
     return ["", "## 指標", "", *_table(head, rows), "",
             "架空引用の行は、採点者の区分ではなく、その列の採点者の組の書名の抜き出しで決まる。"
-            f"「{DASH}」はその採点者の採点範囲の外。"]
+            f"「{DASH}」はその採点者の採点範囲の外。", *_holdout_note(tallies, released)]
+
+
+def _holdout_note(tallies: list[GraderTally], released: str) -> list[str]:
+    """解放したホールドアウトは、数だけ残して成績から外す（答えを渡した後の問いだから）。"""
+    official = tallies[0]
+    if not released or "holdout_agree" not in official.metrics[official.conditions[0]]:
+        return []
+    counts = "、".join(f"{c} {official.metrics[c]['holdout_agree'].text()}" for c in official.conditions)
+    return ["", f"ホールドアウト（H01・H02）は {released} に伏せを解いたため、**答えを渡した後の問い**である。"
+                f"成績には数えない。参考までに、判断の一致は {counts}（{official.name}）。"]
 
 
 def _conclusions(tallies: list[GraderTally]) -> list[str]:
@@ -273,11 +285,11 @@ def _faithfulness_reference(t: GraderTally) -> list[str]:
                 "{n}", str(len(t.faithful_excluded)))]
 
 
-def _appendix(tallies: list[GraderTally]) -> list[str]:
+def _appendix(tallies: list[GraderTally], released: str = "") -> list[str]:
     lines = ["", "## 付録：数えた問い・回答の一覧", ""]
     for t in tallies:
         lines += [f"### {t.name}", ""]
-        for name in _names(t):
+        for name in _names(t, released):
             for c in t.conditions:
                 count = t.metrics[c][name]
                 lines.append(f"- {METRIC_NAMES[name]}・{c}（{count.text()}）：{'、'.join(count.hits) or 'なし'}")

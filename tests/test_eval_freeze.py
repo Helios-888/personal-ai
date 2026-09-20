@@ -141,10 +141,13 @@ def test_errata_is_a_list_of_entries_for_existing_questions(questions):
         assert entry.get("id") in ids and entry.get("reason"), entry
 
 
-def test_holdout_questions_point_to_holdout_episodes(holdouts):
+def test_holdout_questions_point_to_the_episode_they_were_written_from(holdouts):
+    # 2026-09-20、利用者の判断で伏せを解いた（Phase 5 設計書「方針」1）。
+    # 「その episode が伏せられているか」の検査はここで役目を終えた。問いと episode の対応だけを守る。
+    # 解放後、H01・H02 は成績に数えない（採点フォルダの holdout-released.yaml で宣言する）
     episodes = {e.id: e for e in load_episodes(ROOT)}
     for question in holdouts:
-        assert episodes[question["episode"]].holdout, question["id"]
+        assert question["episode"] in episodes, question["id"]
 
 
 def test_holdout_questions_do_not_reveal_the_judgement(holdouts):

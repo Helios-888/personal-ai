@@ -24,6 +24,7 @@ import argparse
 import hashlib
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -58,7 +59,8 @@ KEY_FILE = "key.jsonl"
 ANSWERS_FILE = "answers.jsonl"
 SUPPLEMENT_ITEMS = "titles/items.jsonl"  # Phase 3 だけ：「」の書名を補助抜き出しで拾い直した
 FAITHFULNESS_FILE = "faithfulness.jsonl"
-EXCLUDED_FILE = "faithfulness/excluded.yaml"  # 参考値のために付け足し無しとして数え直す回答。無ければ参考値を出さない
+EXCLUDED_FILE = "faithfulness/excluded.yaml"
+RELEASED_FILE = "holdout-released.yaml"  # 伏せを解いた宣言。あればホールドアウトを成績から外す  # 参考値のために付け足し無しとして数え直す回答。無ければ参考値を出さない
 GRADERS = (  # （名前, 区分のファイル, 組にする補助抜き出しの判定）。1 人目が正式な値
     ("Opus 5", "scores.jsonl", "titles/result-claude.txt"),
     ("GPT-6 Astra", "astra/result-*.txt", "titles/result-astra.txt"),
@@ -82,6 +84,7 @@ NO_FAITHFULNESS_NOTES = {
     True: "付け足し・書き換えの判定：無し（Phase 3 には判定が無い）",
     False: "付け足し・書き換えの判定：無し（--no-faithfulness で集計した。正確さの関門は判定していない）",
 }
+RELEASED_NOTE = "ホールドアウトの解放：{date} に伏せを解いた（{reason}）。H01・H02 は成績に数えない"
 EXCLUDED_NOTE = "参考値のために除いた回答：`{path}`（{reason}）。正式な値は判定どおり"
 SCOPES = {"all": None, "trap": frozenset({"trap"})}  # 2 人目の採点範囲。Phase 3 は全束、Phase 4 は trap の束だけ（設計書「採点」）
 BASELINE_DIR = "baseline"  # 基準値の記録の置き場。1 つ目の条件はここから取る
@@ -145,6 +148,7 @@ def build(args: argparse.Namespace, root: Path, runner: Callable) -> int:
               for name, pattern, result in GRADERS]
     faithful = read_faithful(scoring, inputs, optional=supplement or args.no_faithfulness)
     excluded, excluded_note = read_excluded(scoring, inputs, faithful)
+    released, released_note = read_released(scoring, inputs)
     if faithful is not None:
         check_content_questions(kinds)
     declared = SCOPES[args.second_scope or ("all" if supplement else "trap")]
@@ -165,8 +169,9 @@ def build(args: argparse.Namespace, root: Path, runner: Callable) -> int:
 
     notes = [*(NOTES_SUPPLEMENT if supplement else NOTES),
              FAITHFULNESS_NOTE if faithful is not None else NO_FAITHFULNESS_NOTES[supplement],
-             *excluded_note]
-    report = render_report(header, tallies, notes, sorted(inputs.read.items()), commit)  # 組み上げてから書く
+             *excluded_note, *released_note]
+    report = render_report(header, tallies, notes, sorted(inputs.read.items()), commit,
+                           holdout_released=released)  # 組み上げてから書く
     with open(out, "x", encoding="utf-8", newline="\n") as file:  # 同名があれば失敗する（上書きしない）
         file.write(report)
     print(f"tally: {display(out, root)}（回答 {len(entries)} 件、採点者 {len(tallies)} 人）")
@@ -214,6 +219,24 @@ def read_excluded(scoring: Path, inputs: Inputs, faithful: Optional[dict]) -> tu
     if not isinstance(answers, list) or not answers or not all(isinstance(a, str) and a.strip() for a in answers):
         raise ValueError(f"{where} の answers は回答の呼び名の一覧（1 件以上）である必要があります")
     return frozenset(answers), [EXCLUDED_NOTE.format(path=where, reason=reason.strip())]
+
+
+def read_released(scoring: Path, inputs: Inputs) -> tuple[str, list[str]]:
+    """ホールドアウトの伏せを解いた日と理由。ファイルが無ければ空（従来どおり成績に数える）。"""
+    path = scoring / RELEASED_FILE
+    where = display(path, inputs.root)
+    if not path.exists():
+        return "", []
+    data = yaml.safe_load(inputs.text(path)) or {}
+    values = {}
+    for field in ("date", "reason"):
+        value = data.get(field)
+        if isinstance(value, date):  # YAML の 2026-09-20 は日付として読まれる
+            value = value.isoformat()
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{where} に {field} がありません（解放の日付と理由を書く）")
+        values[field] = value.strip()
+    return values["date"], [RELEASED_NOTE.format(**values)]
 
 
 def check_content_questions(kinds: dict[str, str]) -> None:

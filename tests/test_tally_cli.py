@@ -361,3 +361,29 @@ def test_the_exclusion_may_not_be_combined_with_no_faithfulness(tmp_path, capsys
     assert run(['--scoring', SCORING, '--no-faithfulness'], root=tmp_path, runner=clean_git) == 1
     assert 'excluded.yaml' in capsys.readouterr().err
     assert not (scoring / 'tally.md').exists()
+
+
+# --- ホールドアウトの解放（holdout-released.yaml） ---------------------------------------
+
+RELEASED_YAML = 'date: 2026-09-20\nreason: 利用者の判断で伏せを解いた（Phase 5 設計書「方針」1）\n'
+
+
+def test_a_release_declaration_is_recorded_and_fingerprinted(tmp_path, capsys, content_f01):
+    scoring = make_phase4_tree(tmp_path)
+    write(scoring / 'holdout-released.yaml', RELEASED_YAML)
+    assert run_cli(tmp_path) == 0
+    report = (scoring / 'tally.md').read_text(encoding='utf-8')
+    intro = report.split('## 指標')[0]
+    assert '2026-09-20' in intro and '利用者の判断で伏せを解いた' in intro
+    assert f'`{SCORING}/holdout-released.yaml`' in report
+
+
+def test_the_release_declaration_needs_a_date_and_a_reason(tmp_path, capsys, content_f01):
+    scoring = make_phase4_tree(tmp_path)
+    write(scoring / 'holdout-released.yaml', 'reason: r\n')
+    assert run_cli(tmp_path) == 1
+    assert 'date' in capsys.readouterr().err
+    write(scoring / 'holdout-released.yaml', 'date: 2026-09-20\n')
+    assert run_cli(tmp_path) == 1
+    assert 'reason' in capsys.readouterr().err
+    assert not (scoring / 'tally.md').exists()
