@@ -31,8 +31,8 @@ llm01 上の Open WebUI に「空海AI」を RAG で構築するためのリポ�
 | 1 | リポジトリ骨格と同期スクリプト | 完了（2026-09-17。GitHub private `Helios-888/personal-ai` へ push 済） |
 | 2 | 声の設計（RAG 無し） | 完了（2026-09-17〜18。思考 OFF、voice.md、episodes 8 件、principles.md 6 項目。確認は `scripts/probe_voice.py`） |
 | 3 | 評価セット凍結と基準値取得 | 完了（2026-09-18〜19。32 問を凍結、B0・B1 各 96 回答、盲検採点と集計は `scripts/blind_pack.py`・`scripts/tally.py`。結果は `evaluations/kukai/baseline/README.md`） |
-| 4 | Knowledge 投入 | 未着手 |
-| 5 | 調整と打ち切り判断 | 未着手 |
+| 4 | Knowledge 投入 | 完了（2026-09-19〜20。著作 8 点と『御遺告』を束にして K1 を取得、B1 と比較。内容 10 問の正答が 1/10 から 6/10 へ、付け足しが 22/30 から 9/30 へ改善したが、正確さの関門は未達。結果は `evaluations/kukai/runs/README.md`） |
+| 5 | 調整と打ち切り判断 | 未着手（検索の取りこぼし F04・F08・F09・F10 と、伝記の資料不足への対処） |
 
 ## 同期スクリプトの使い方
 
