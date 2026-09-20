@@ -5,6 +5,8 @@
 使い方（llm01 のリポジトリ直下で）:
   .venv/bin/python scripts/tally.py --scoring evaluations/kukai/scoring/2026-09-19-phase4
   → <scoring>/tally.md（既にあれば何も書かずに止まる）
+  比べる 2 つの記録がどちらも runs/ にある（同じ条件で検索の設定だけを変えた前後。Phase 5）ときは、
+  先に取ったほうを --prior K1 のように宣言する。宣言は報告に残る。
 
 読むもの（<scoring> の中）:
   scores.jsonl              一次採点（Opus 5）の区分と書名の抜き出し
@@ -86,6 +88,8 @@ NO_FAITHFULNESS_NOTES = {
 }
 RELEASED_NOTE = "ホールドアウトの解放：{date} に伏せを解いた（{reason}）。H01・H02 は成績に数えない"
 EXCLUDED_NOTE = "参考値のために除いた回答：`{path}`（{reason}）。正式な値は判定どおり"
+PRIOR_NOTE = ("1 つ目の条件の記録：`{path}`（`{baseline}/` の外にある）。設定を変える前に取った条件として "
+              "`--prior {condition}` で宣言した。「下がらず」と天井は 2 つ目の条件で判定する")
 SCOPES = {"all": None, "trap": frozenset({"trap"})}  # 2 人目の採点範囲。Phase 3 は全束、Phase 4 は trap の束だけ（設計書「採点」）
 BASELINE_DIR = "baseline"  # 基準値の記録の置き場。1 つ目の条件はここから取る
 
@@ -97,6 +101,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--rubric", default=DEFAULT_RUBRIC, help="凍結した採点基準のパス")
     parser.add_argument("--second-scope", choices=sorted(SCOPES),
                         help="2 人目（Astra）の採点範囲。既定は Phase 3 の形（補助抜き出しがある）なら all、それ以外は trap")
+    parser.add_argument("--prior", default="", metavar="条件",
+                        help="1 つ目の条件の記録が baseline/ の外にあるとき、設定を変える前に取った条件として宣言する"
+                             "（同じ条件名で取った設定の前後を比べるとき。例 --prior K1）")
     parser.add_argument("--no-faithfulness", action="store_true",
                         help="付け足し・書き換えの判定なしで集計する（検索箇所を記録できなかったときだけ。報告にその旨を書く）")
     return parser.parse_args(argv)
@@ -155,7 +162,7 @@ def build(args: argparse.Namespace, root: Path, runner: Callable) -> int:
 
     header, entries = read_key(inputs.text(scoring / KEY_FILE))  # ほかをすべて読んで確かめてから開く
     conditions = key_conditions(header)
-    check_baseline_first(header, conditions)
+    prior_note = check_baseline_first(header, conditions, args.prior)
     check_complete(entries, kinds, header["settings"]["repeats"], conditions)
     check_answers(header, conditions, root, inputs)
     commit = check_committed(root, [*inputs.read, *CODE_FILES], runner)
@@ -169,7 +176,7 @@ def build(args: argparse.Namespace, root: Path, runner: Callable) -> int:
 
     notes = [*(NOTES_SUPPLEMENT if supplement else NOTES),
              FAITHFULNESS_NOTE if faithful is not None else NO_FAITHFULNESS_NOTES[supplement],
-             *excluded_note, *released_note]
+             *excluded_note, *released_note, *prior_note]
     report = render_report(header, tallies, notes, sorted(inputs.read.items()), commit,
                            holdout_released=released)  # 組み上げてから書く
     with open(out, "x", encoding="utf-8", newline="\n") as file:  # 同名があれば失敗する（上書きしない）
@@ -246,12 +253,26 @@ def check_content_questions(kinds: dict[str, str]) -> None:
         raise ValueError(f"経典の内容を問う 10 問のうち、評価セットに factual として無い問いがあります: {', '.join(missing)}")
 
 
-def check_baseline_first(header: dict, conditions: tuple[str, ...]) -> None:
-    """1 つ目の条件が基準値（baseline/ の記録）か。「下がらず」と天井は後の条件で判定するので、順が逆だと誤る。"""
+def check_baseline_first(header: dict, conditions: tuple[str, ...], prior: str = "") -> list[str]:
+    """1 つ目の条件が基準値（baseline/ の記録）か。「下がらず」と天井は後の条件で判定するので、順が逆だと誤る。
+
+    Phase 5 のように、比べる 2 つがどちらも runs/ にあるとき（同じ資料ありの条件で、検索の設定だけを変えた前後）は、
+    置き場では前後を決められない。先に取ったほうを --prior で宣言し、その宣言を報告に残す。
+    """
     path = (header["sources"].get(conditions[0]) or {}).get("path", "") if header.get("sources") else ""
-    if BASELINE_DIR not in Path(path).parts:
+    if BASELINE_DIR in Path(path).parts:
+        if prior:
+            raise ValueError(f"--prior {prior} と宣言しましたが、1 つ目の条件 {conditions[0]} の記録は"
+                             f"すでに基準値（{BASELINE_DIR}/）にあります: {path}")
+        return []
+    if not prior:
         raise ValueError(f"1 つ目の条件 {conditions[0]} の記録が基準値（{BASELINE_DIR}/）ではありません: {path}"
-                         "（blind_pack の --run は基準値を先に渡す）")
+                         f"（blind_pack の --run は基準値を先に渡す。設定を変えた前後を比べるなら "
+                         f"--prior {conditions[0]} と宣言する）")
+    if prior != conditions[0]:
+        raise ValueError(f"--prior {prior} は 1 つ目の条件（{conditions[0]}）ではありません。"
+                         "設定を変える前に取ったほうを宣言してください")
+    return [PRIOR_NOTE.format(path=path, baseline=BASELINE_DIR, condition=conditions[0])]
 
 
 def checked_scope(name: str, declared: Optional[frozenset], labels: dict[str, str], entries: dict,

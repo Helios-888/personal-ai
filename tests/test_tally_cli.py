@@ -100,8 +100,8 @@ def make_tree(root: Path, rubric: str = RUBRIC_YAML) -> Path:
     return scoring
 
 
-def run_cli(root: Path, runner=clean_git) -> int:
-    return run(["--scoring", SCORING], root=root, runner=runner)
+def run_cli(root: Path, runner=clean_git, *extra: str) -> int:
+    return run(["--scoring", SCORING, *extra], root=root, runner=runner)
 
 
 def test_writes_report_with_both_graders(tmp_path, capsys):
@@ -223,11 +223,12 @@ titles:
 
 
 def make_phase4_tree(root: Path, drop_faithfulness: str = "", faithfulness: bool = True, astra_all: bool = False,
-                     baseline_first: bool = True) -> Path:
+                     baseline_first: bool = True, earlier_in_runs: bool = False) -> Path:
     frozen(root / "evaluations/kukai/questions.yaml", QUESTIONS_YAML)
     frozen(root / "evaluations/kukai/rubric.yaml", RUBRIC_YAML)
     sources = {}
-    records = [("B1", "evaluations/kukai/baseline/b1"), ("K1", "evaluations/kukai/runs/k1")]
+    earlier = "evaluations/kukai/runs/b1" if earlier_in_runs else "evaluations/kukai/baseline/b1"
+    records = [("B1", earlier), ("K1", "evaluations/kukai/runs/k1")]
     for condition, path in records if baseline_first else records[::-1]:
         write(root / path / "answers.jsonl", json.dumps({"record": "header", "condition": condition}) + "\n")
         sources[condition] = {"path": path, "answers_sha256": hashlib.sha256((root / path / "answers.jsonl").read_bytes()).hexdigest()}
@@ -316,6 +317,31 @@ def test_the_baseline_record_must_come_first(tmp_path, capsys, content_f01):
     make_phase4_tree(tmp_path, baseline_first=False)
     assert run_cli(tmp_path) == 1
     assert "基準値" in capsys.readouterr().err
+
+
+def test_the_earlier_run_outside_the_baseline_is_declared(tmp_path, capsys, content_f01):
+    # Phase 5：設定を変えた前後を比べるので、2 つの記録がどちらも runs/ にある。先に取ったほうを宣言して通す
+    scoring = make_phase4_tree(tmp_path, earlier_in_runs=True)
+    assert run_cli(tmp_path, clean_git, "--prior", "B1") == 0
+    assert "--prior" in (scoring / "tally.md").read_text(encoding="utf-8")
+
+
+def test_a_record_outside_the_baseline_stops_without_the_declaration(tmp_path, capsys, content_f01):
+    make_phase4_tree(tmp_path, earlier_in_runs=True)
+    assert run_cli(tmp_path) == 1
+    assert "--prior B1" in capsys.readouterr().err  # 宣言の仕方を示す
+
+
+def test_the_declaration_must_name_the_first_condition(tmp_path, capsys, content_f01):
+    make_phase4_tree(tmp_path, earlier_in_runs=True)
+    assert run_cli(tmp_path, clean_git, "--prior", "K1") == 1
+    assert "1 つ目の条件" in capsys.readouterr().err
+
+
+def test_the_declaration_is_refused_when_the_record_is_already_the_baseline(tmp_path, capsys, content_f01):
+    make_phase4_tree(tmp_path)
+    assert run_cli(tmp_path, clean_git, "--prior", "B1") == 1
+    assert "すでに基準値" in capsys.readouterr().err
 
 
 # --- 参考値のために除く回答（faithfulness/excluded.yaml） --------------------------------------
