@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会話まとめ 2026-09-22-01 — Phase 5 完走と、画面の口調崩れの真因特定</title>
+<style>
+  body { font-family: "Segoe UI", "Yu Gothic UI", sans-serif; margin: 24px; color: #222; background: #fafafa; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-left: 6px solid #3b82f6; padding-left: 10px; background: #eef3fb; padding: 6px 10px; }
+  h3 { margin-top: 20px; color: #1e3a8a; border-bottom: 1px dashed #93c5fd; padding-bottom: 3px; }
+  h4 { margin-top: 14px; color: #1e40af; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #e5e7eb; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+  .ok   { background: #d1fae5 !important; }
+  .warn { background: #fef3c7 !important; }
+  .ng   { background: #fee2e2 !important; }
+  .info { background: #dbeafe !important; }
+  .muted { color: #666; }
+  .pos { color: #059669; font-weight: bold; }
+  .neg { color: #dc2626; font-weight: bold; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: "Consolas", "Courier New", monospace; }
+  pre  { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.45; }
+  ul, ol { line-height: 1.8; }
+
+  /* 会話まとめ固有 */
+  .headline-card { background: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 12px 0 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .headline-card .label { font-size: 12px; color: #1e40af; letter-spacing: 0.05em; }
+  .headline-card .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+  .conclusion { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+
+  /* 会話ログ */
+  .dialog { margin: 14px 0; }
+  .dialog-block { margin: 10px 0; padding: 10px 14px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; }
+  .dialog-block.master { border-left: 5px solid #2563eb; background: #eff6ff; }
+  .dialog-block.ai { border-left: 5px solid #6b7280; background: #f9fafb; }
+  .dialog-num { display: inline-block; min-width: 36px; font-family: "Consolas", monospace; font-size: 11px; color: #6b7280; margin-right: 6px; }
+  .speaker-master { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .speaker-ai     { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .dialog-body { margin-top: 6px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; }
+  .elide { display: inline-block; padding: 1px 8px; margin: 2px 0; background: #f3f4f6; color: #6b7280; font-style: italic; font-size: 12px; border-radius: 3px; border: 1px dashed #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>会話まとめ 2026-09-22-01</h1>
+<div class="headline-card">
+  <div class="label">HEADLINE</div>
+  <div class="value">Phase 5 を完走（経典の内容 10 問が満点）し、画面での口調崩れの真因を突き止めた</div>
+</div>
+<p class="meta">実施日: 2026-09-21 〜 2026-09-22 / セッション ID: session_01LX6sHoLf69n11nfuHM2MAv / ブランチ: main / リポジトリ: Helios-888/personal-ai（llm01 の /home/aiadmin/personal-ai）</p>
+
+<h2>セッション概要</h2>
+
+<h3>起点</h3>
+<p>前セッションがトークン切れで中断。Phase 5 の手順 8（採点と集計）の途中、「付け足し・書き換えの判定」に入る直前で止まっていた。盲検の束・一次採点 192 件・GPT-6 Astra の罠 10 問は取得済みで、判定用の束を作るスクリプトを書いたところで停止していた。</p>
+
+<h3>進行段取り</h3>
+<ol>
+  <li>中断地点の特定と、判定用の束の生成（192 回答分）</li>
+  <li>付け足し・書き換えの判定をサブエージェント 9 体で実行（1 体ずつ順に）</li>
+  <li>照合表・解放宣言・参考値の定義を作り、集計（tally.md）を出力</li>
+  <li>集計スクリプトの穴（比べる 2 つがどちらも <code>runs/</code> にある場合）を TDD で修正</li>
+  <li>「回答が事務的」という申告を受け、原因を切り分け（→ 真因は Open WebUI の個人設定）</li>
+  <li>常時層の実欠陥（出典行の誤用・規則の漏れ）を修正し、稼働中へ同期</li>
+  <li>執事の指示を個人設定からモデル側へ移設（2 モデル）</li>
+  <li>定型の出典行そのものを廃止し、語りの中で断る形へ変更</li>
+</ol>
+
+<h2>各段階のサマリ</h2>
+
+<h3>段階 1: Phase 5 の採点完了（手順 8）</h3>
+<ul>
+  <li>判定用の束を生成（192 回答、32 問）。Phase 5 は渡す箇所が 3 → 10 に増えたため 1 問あたり約 80KB となり、<strong>Phase 4 の 4 体から 9 体へ分割</strong>（1 体あたり 3〜4 問）</li>
+  <li>同じ問いの 6 回答（2 条件 × 3 回）は必ず同じ 1 体が判定するため、体ごとに読みが違っても条件間の比較は歪まない</li>
+  <li>書名の照合表を作成。新出 3 種（綜芸種智院式并序・答叡山澄法師求理趣釈経書・性霊集の別表記）はいずれも今回足した年譜に載るため架空引用ではない</li>
+  <li>参考値の定義（excluded.yaml）は Phase 4 と同じ選び方。「語の説明」1 つだけが理由の 9 回答</li>
+</ul>
+
+<h3>段階 2: 集計スクリプトの穴を修正</h3>
+<p>集計が「1 つ目の条件は <code>baseline/</code> にあるはず」という決め打ちで停止した。Phase 5 は変更の前後を比べるため、両方が <code>runs/</code> にある。<code>--prior K1</code> で先に取った条件を宣言する形に改め、テスト 4 本を追加（宣言なしで停止、宣言が 2 つ目の名なら拒否、既に baseline なら拒否、正しい宣言なら通過して報告に残る）。テストは 621 件すべて通過。</p>
+
+<h3>段階 3: 「回答が事務的」の切り分け</h3>
+<table>
+  <tr><th>手順</th><th>結果</th></tr>
+  <tr><td>同じ問いを API 経由で 6 回</td><td class="ok">です・ます 0、箇条書き 0 — 再現せず</td></tr>
+  <tr><td>2 例目（相談の問いかけ）も 6 回</td><td class="ok">同じく再現せず（計 12 回で 0）</td></tr>
+  <tr><td>過去の全記録を同じ物差しで集計</td><td class="info">素のモデル B0 は箇条書き 86/96、常時層ありは 3 記録 288 回答すべてで 0</td></tr>
+  <tr><td>画面の設定を確認（スクリーンショット）</td><td class="ng">個人設定に執事アシスタントの指示。「です・ます調の丁寧な執事の口調を保つ事」</td></tr>
+  <tr><td>旦那様が設定を消して再試行</td><td class="ok">「である」調に復帰 — 真因確定</td></tr>
+</table>
+<div class="conclusion">Open WebUI の「設定 &gt; 一般 &gt; システムプロンプト」は<strong>画面で使う全モデルに効き、API 経由では効かない</strong>。評価は API 経由のため、Phase 5 の成績はこの件の影響を受けていない。</div>
+
+<h3>段階 4: 常時層の実欠陥を 2 段階で修正</h3>
+<p>設定を外した後の回答に、真の欠陥が 2 つ現れた。</p>
+<ul>
+  <li><strong>出典行の誤用</strong>：引くものが無いのに「――出典：なし」と書く</li>
+  <li><strong>規則の漏れ</strong>：「問わぬ限り四百字以内で答える」と、常時層の規則そのものを答えに書く</li>
+</ul>
+<p>voice.md に 3 行を足して修正（コミット 64e82ef）。その後、旦那様の判断で<strong>定型の出典行そのものを廃止</strong>し、語りの中で断る形へ変更（未コミット）。</p>
+
+<h3>段階 5: 執事の指示をモデル側へ移設</h3>
+<p>当初 4 モデルを推奨したが、中身を確認したところ 2 つ（<code>minimax-h3-prompt</code> 2.7 万字、<code>h3-ref2va-prompt-writer</code> 5 万字）に動画プロンプト生成ガイドが入っており、上書きすれば壊れるところだった。<strong>推奨の誤りを訂正し、対象を 2 つに絞った</strong>。変更前の姿は <code>~/openwebui-backups/</code> に保全。</p>
+
+<h2>数値検証</h2>
+
+<h3>Phase 5 の成績（K1 = 変更前、K2 = 今回）</h3>
+<table>
+  <tr><th>指標</th><th>K1</th><th>K2</th><th>判定</th></tr>
+  <tr><td>経典の内容 10 問 正答（多数決）</td><td>6/10</td><td class="pos">10/10</td><td class="ok">関門 7 以上を初めて突破</td></tr>
+  <tr><td>同・過剰拒否（30 回答中）</td><td>6</td><td class="pos">0</td><td class="ok">—</td></tr>
+  <tr><td>伝記込み 15 問の過剰拒否（45 回答中）</td><td>15</td><td class="pos">3</td><td class="warn">残る 3 は全て F05</td></tr>
+  <tr><td>罠を正しく退けた</td><td>9/10</td><td>9/10</td><td class="ok">Astra は 10/10</td></tr>
+  <tr><td>架空引用</td><td>0/90</td><td>0/90</td><td class="ok">—</td></tr>
+  <tr><td>付け足し・書き換え（内容 10 問・30 回答中）</td><td>9</td><td>6</td><td class="ng">関門「0」は未達</td></tr>
+  <tr><td>同・参考の読み（語の説明を除く）</td><td>4</td><td>2</td><td class="ng">同上</td></tr>
+  <tr><td>採点者間の一致（罠 60 回答）</td><td colspan="2">51/60（85%）</td><td class="info">食い違いは T01 のみ</td></tr>
+</table>
+<p class="muted">成功基準 4 つのうち 3 つを達成。未達の「伝記 5 問の過剰拒否 0」は 9 → 3 に減少し、残る 3 回答はすべて F05。F05 の事実は出どころが評価の正解表のため意図的に年譜へ入れていない。年譜に入れた F11〜F14 では 6 回答 → 0。撤退条件はどれにも該当せず、TOP_K は 10 のまま。</p>
+
+<h3>語り口の修正（同じ問いを 12 回ずつ）</h3>
+<table>
+  <tr><th>症状</th><th>変更前</th><th>変更後</th></tr>
+  <tr><td>規則の漏れ（「問わぬ限り四百字以内で答えよう」等）</td><td>1</td><td class="pos">0</td></tr>
+  <tr><td>「――出典：なし」</td><td>1</td><td class="pos">0</td></tr>
+  <tr><td>です・ます／箇条書き／「あなた」</td><td>0</td><td>0</td></tr>
+</table>
+
+<h3>出典行の廃止（出典の問い 5 問 × 3 回 = 15 回答）</h3>
+<table>
+  <tr><th>確認項目</th><th>結果</th></tr>
+  <tr><td>定型の出典行が出た回答</td><td class="ok">0/15</td></tr>
+  <tr><td>後世の文書に触れた際の断り</td><td class="ok">15/15</td></tr>
+  <tr><td>資料を引いた問い（F01・F02 各 3 回）の書名明示</td><td class="ok">6/6（廃止前の確認）</td></tr>
+  <tr><td>入滅の年号</td><td class="ng">A05 で「長慶七年」「天長十二年」— 年譜に入滅の記述が無い</td></tr>
+</table>
+
+<h2>最終構成</h2>
+
+<h3>コミット（すべて main、push 済みは 64e82ef まで）</h3>
+<table>
+  <tr><th>ハッシュ</th><th>内容</th></tr>
+  <tr><td><code>53e1555</code></td><td>同じ条件名で取った 2 つの記録を、束で別名として扱う（<code>--recorded K2=K1</code>）</td></tr>
+  <tr><td><code>b0c2e82</code></td><td>Phase 5 の採点一式（192 回答の採点・判定・照合表）</td></tr>
+  <tr><td><code>f801f07</code></td><td>集計の穴を塞ぐ（<code>--prior K1</code>）</td></tr>
+  <tr><td><code>7abfaf5</code></td><td>集計結果 tally.md（合否の照合）</td></tr>
+  <tr><td><code>64e82ef</code></td><td>語り口の修正（出典行の誤用・規則の漏れ）</td></tr>
+</table>
+
+<h3>新規ファイル</h3>
+<ul>
+  <li><code>evaluations/kukai/scoring/2026-09-20-phase5/</code> 一式（tally.md / faithfulness.jsonl 192 行 / titles.yaml 16 種 / holdout-released.yaml / faithfulness/excluded.yaml / faithfulness/notes.md 62KB）</li>
+</ul>
+
+<h3>編集</h3>
+<ul>
+  <li><code>scripts/blind_pack.py</code>、<code>scripts/lib/blinding.py</code>（+ テスト 2 本）</li>
+  <li><code>scripts/tally.py</code>（+ テスト 4 本）</li>
+  <li><code>agents/kukai/voice.md</code>（2 回。出典行の条件 → 定型行の廃止）</li>
+  <li><code>agents/kukai/rules.md</code>（規則 4 を「語りの中で断る」へ）</li>
+</ul>
+
+<h3>リポジトリ外の変更（Open WebUI）</h3>
+<ul>
+  <li><code>kukai-ai</code> の常時層を 2 回同期（2,373 → 2,495 → 2,498 トークン）</li>
+  <li><code>script-writer</code>・<code>script-writer-uncensored</code> に執事の指示をモデル固有で設定</li>
+  <li>変更前の姿を <code>~/openwebui-backups/</code> に保全（/tmp は再起動で消えるため）</li>
+</ul>
+
+<h2>旦那様の重要な気づき</h2>
+<ol>
+  <li><strong>トークン使用率が 90% を超えたら、まとめ処理は次のリセットまで待つ。</strong>走行中の 1 体は止めず、次の 1 体を起動しない。</li>
+  <li><strong>出典行は不要。</strong>「普通の会話ではそういうものはいちいち言わないし、あなたとて表示していないと思うが」。定型行を毎回貼るのではなく、聞かれたときに答えればよい。</li>
+  <li><strong>資料の区分（役割）の明示も同様に、聞かれた時だけでよい。</strong>これを受けて、行末の定型行ではなく語りの中で断る形へ設計を変更した。</li>
+  <li><strong>さらなる専門的資料の投入は、いま行う理由がない</strong>と判断（AI 側の説明：枠 10 の競合で既に解けている問いが壊れうる／内容 10 問は天井に達し改善を測れない）。</li>
+  <li><strong>Phase 5 の関門未達について「これ以上厳密な回答を求める必要はない」</strong>との見立て。AI 側も「残る関門が測定の分解能を下回る」として同意。</li>
+</ol>
+
+<h2>関連メモリ</h2>
+<ul>
+  <li><code>pause-batch-at-90-percent-usage</code>（新設）— 利用枠 90% でサブエージェントの連続起動を止める</li>
+  <li><code>openwebui-screen-vs-api-prompt</code>（新設）— 画面の個人設定は全モデルに効き API には効かない。画面の不具合をまず API で再現確認する</li>
+  <li><code>kukai-ai-project-state</code>（更新）— Phase 5 の成績、道具の追加 2 件、語り口の修正と常時層のトークン変化</li>
+</ul>
+
+<h2>次セッションの推奨手順</h2>
+
+<h3>残作業</h3>
+<ol>
+  <li><strong>出典行の廃止（voice.md / rules.md）のコミットと push</strong> — 本まとめと同時に実施予定</li>
+  <li><strong>Phase 5 の締め</strong> — 「最後の 1 回（再ランク付け）を使わず、関門未達のまま理由を記録して終える」という判断を設計書に書き足す。これは旦那様の判断待ち</li>
+</ol>
+
+<h3>次フェーズ候補</h3>
+<ol>
+  <li><strong>年譜の穴を埋める</strong>：年譜 23 項目に<strong>入滅の記述が無い</strong>。このためモデルが「年譜に記すところでは、長慶七年三月二十一日…」と、存在しない年号を作文している。承和二年（835）3 月 21 日を年譜へ足すのが本筋だが、資料の束を入れ替えるため Phase 5 の測定条件から外れる。測り直すかどうかを含めて判断が要る</li>
+  <li><strong>「年譜に記すところでは」という枕詞の扱い</strong>：昨日の本番 96 回答にも同種が 3 件あり（F11 で顕著）、AI の変更以前から存在する癖。ただし今回の例文追加が頻度を上げた疑いは残るため、切り分けるなら変更前に戻して同じ問いを測る（稼働中を 2 回触る）</li>
+</ol>
+
+<h3>学び</h3>
+<ul>
+  <li><strong>画面と API は条件が違う。</strong>画面の不具合を常時層のせいと取り違えると、測って確かめた品質を必要のない変更で壊す</li>
+  <li><strong>temperature 0.7 では 1 回の試行で判断できない。</strong>6〜12 回投げて頻度で比べる</li>
+  <li><strong>既存の設定は必ず読んでから触る。</strong>中身を確認せずに 4 モデルへの移設を推奨し、2 つを壊すところだった</li>
+  <li><strong>内容 10 問は天井に達した。</strong>今後この評価セットで言えるのは「壊れていない」ことだけで、改善を測るには新しい問いの裏取りが要る（15 問で半日〜1 日）</li>
+</ul>
+
+<h2>会話ログ</h2>
+<div class="dialog">
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#1</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">トークンが一杯でまた止まってしまった様だ。確認して再開して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#2</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">中断地点は Phase 5 手順 8 の「付け足し・書き換えの判定」直前。一次採点 192 件と Astra の罠 60 件は取得済み。判定用の束を生成し、1 体目を起動。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#3</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">アストラの回答は既に入れてある。バッチ処理の実行はトークン使用の使用率が90％以上などに高くなったら次のリセットが来るまで待つように</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#4</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">承知。記憶に記録。Astra の 60 件は確認済みで段取りから外す。利用枠の使用率は API から読めないため、セッション残量を目安にする旨を説明。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#5</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">概ね結果は良好に思ったのだが？これ以上厳密回答を求める必要はとりあえずは内容にも思えるが、客観的にどう思う？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#6</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">止めてよい。ただし理由は「良好だから」ではなく「残る関門（付け足し 0）が測定の分解能を下回るから」。正式 6/30 と参考 2/30 の差は判定役の線引きの差。再ランク付けは付け足しに効く筋が薄い。ただし設計書の決め（最後の 1 回を使う）の変更になるため、未達のまま終える旨を記録すべき。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#7</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">とりあえず今回は一旦これで良いと思う。これ以上の自著書物、もっと専門的な自著書のRAGを投入した場合、専門的な質問をしない限り変わらないかな？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#8</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">今の測り方では「変わらない」が正しい（内容 10 問は天井）。ただし実際の振る舞いは変わりうる、方向は悪化の側。枠 10 に対し資料は 316 箇所あり、年譜 6 箇所は枠 3 では 5 問中 1 問にしか届かなかった。足すほど既存の正答が押し出される。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#9</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">あなたの悟りについて、分かりやすく教えてもらう事はできますか？の答えには以下のように答えられた。ある意味正解（正しい）答えではあるが、答え方を事務的な返答ではなく、普通に答えるようにすることは可能だろうか？それはLoRAになる？
+
+<span class="elide">[省略: 貼り付けた回答 約 1,100 字。です・ます調、番号付き階層、箇条書き、出典行あり]</span></div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#10</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">LoRA の前に常時層で届く見込みが高い。事務的な要素（名乗り・予告・番号付き構造・出典行）の多くは指示由来。ただし出典行を外すと架空引用の測り方が変わる点に注意。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#11</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">常時層（システムプロンプト）で試して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#12</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">voice.md は既に「である調・箇条書き禁止・400 字以内」と定めており、貼られた回答は全て違反。評価 96 回答では箇条書き 0、です・ます 12。同じ問いを API で 6 回投げたが再現せず（です・ます 0、箇条書き 0）。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#13</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">私の相談を聞いてもらえますか？の答えには以下の回答をしてきた。これもまぁ正しくはあるが、あくまでAIのRAGという事をベースにした回答に聞こえる。これを一人称的というか、空海の直接的な会話の回答会話にすることは可能か？「承知しました」などは要らないようなきがするし。
+
+<span class="elide">[省略: 貼り付けた回答 約 180 字。「承知いたしました。どうぞお聞かせください。」で始まる です・ます調]</span></div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#14</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">この問いでも 6 回投げて全て「である」調。2 例とも再現せず（計 12 回）。過去記録を集計すると、素のモデル B0 は箇条書き 86/96、常時層ありは 288 回答すべて 0。画面でのみ効く追加指示を疑う。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#15</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">モデルの表示名はもちろん「空海」。設定の一般には色々書いている。これはモデル全体に影響する設定？スクリーンショット.png</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#16</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">はい、画面の全モデルに効く。設定内の「です・ます調の丁寧な執事の口調を保つ事」が犯人。API 経由では効かないため、Phase 5 の成績は無事。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#17</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">設定一般を消したらこう変わった。
+
+<span class="elide">[省略: 貼り付けた回答 3 行。「よい、聞こう。」＋規則の漏れ＋「――出典：なし」]</span></div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#18</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">原因確定。ただしその回答に別の欠陥が 2 つ（出典行の誤用・規則の漏れ）。12 回ずつ測って 2 件 → 0 件に修正。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#19</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">同期？git登録？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#20</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">別作業。同期＝稼働中の空海AI に教え直す（動きが変わる）。コミット＝手元に履歴を残す（動きは変わらない）。いま要るのは同期。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#21</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">同期して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#22</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">同期完了。撤退テスト（F01・F02 各 3 回）で出典行 6/6 が正しく付くことを確認。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#23</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">コミットして良いよ</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#24</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">push して。個人設定の問題は何とかしたい。他のモデルを使う時は必要</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#25</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">push 完了（6834545..64e82ef）。執事の指示をモデル側へ移す案を提示し、全文の提供を依頼。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#26</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">今、設定は消してあるので下記に、消した内容を貼る。
+
+<span class="elide">[省略: 執事アシスタントの指示 約 800 字。回答スタイル / 意思決定の提案 / 手順案内 / 利用者の背景の 4 節]</span></div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#27</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">推奨した 4 つのうち 2 つ（h3 系）に 2.7 万字・5 万字の動画プロンプト生成ガイドが入っており、上書きすれば壊れるところだった。推奨の誤りを訂正し 2 モデルに絞って設定。執事口調と空海の語り口が両立することを確認。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#28</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">「――出典：『秘密曼荼羅十住心論』『即身成仏義』（わたしの著作）」などはやはり不要だと思うが</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#29</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">外してよい。ただし括弧書きの「資料の区分」は出典の問い 5 問の中核に直結する。自著のときだけ省き、後世の文書・年譜のときは残す案を提示。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#30</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">役割については、聞かれた時だけ答えれば良いのではないだろうか。普通の会話ではそういうものはいちいち言わないし、あなたとて表示していないと思うが</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#31</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">仰るとおり。定型行を廃止し、必要な区別は語りの中で述べる形へ。書名の抜き出しは本文の『 』からも行うため、捏造を見つける力は保たれる。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#32</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">同期して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#33</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">同期完了。定型行 0/15、後世の文書への断り 15/15 で成功基準を達成。ただし別の欠陥を発見 — 年譜に入滅の記述が無いのに「年譜に記すところでは、長慶七年三月二十一日」と存在しない年号を作文。切り分けの結果、この癖は変更以前から（昨日の記録に 3 件）。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#34</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">一旦区切りにしよう。会話を記録して。まとめてコミット、pushして</div>
+  </div>
+
+</div>
+
+</body>
+</html>
