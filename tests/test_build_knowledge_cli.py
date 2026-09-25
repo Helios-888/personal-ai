@@ -28,7 +28,7 @@ def sha(text: str) -> str:
 
 
 class FakeOpenWebUI:
-    def __init__(self, embedding_model="BAAI/bge-m3", status="completed", version="0.11.3"):
+    def __init__(self, embedding_model="BAAI/bge-m3", status="completed", version="0.11.4"):
         self.embedding_model = embedding_model
         self.status = status
         self.version = version

@@ -18,8 +18,10 @@ from typing import Optional
 
 import requests
 
-# 上の挙動と、Phase 4 設計書「着手時に判明したこと」11〜14 は、この版の公開ソースで確かめた。版が変われば確かめ直す
-EXPECTED_VERSION = "0.11.3"
+# 上の挙動と、Phase 4 設計書「着手時に判明したこと」11〜14 は v0.11.3 の公開ソースで確かめた。版が変われば確かめ直す。
+# 2026-09-25 に v0.11.4 の公開ソースと突き合わせ直した（束の検索の関数は例外とログの扱いだけの差、モデルに渡す資料の枠は既定の設定で同じ。
+# evaluations/kukai/preflight/2026-09-25-knowledge-ndl/README.md）
+EXPECTED_VERSION = "0.11.4"
 UPLOAD_TIMEOUT = 1800  # 秒。コンテナの CPU で埋め込むので、長い著作は数分かかる
 _ID = re.compile(r"[A-Za-z0-9-]+")  # パスに入れる id（Open WebUI の uuid）
 

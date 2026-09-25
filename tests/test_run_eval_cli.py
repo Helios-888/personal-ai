@@ -649,7 +649,7 @@ class K1OpenWebUI(FakeOpenWebUI):
     """Knowledge つきで登録され、v0.11.3 の形で設定を返す Open WebUI。既定ではリポジトリの定義どおり。"""
 
     def __init__(self, registered=SAME_AS_REPO, *, agent=K1_AGENT, embedding_model="BAAI/bge-m3", file_hash=K_SHA,
-                 version="0.11.3", top_k_after_first_read=None):
+                 version="0.11.4", top_k_after_first_read=None):
         super().__init__(build_model_form(agent, SYSTEM_PROMPT, K1_REFS) if registered is SAME_AS_REPO else registered)
         self.embedding_model = embedding_model
         self.file_hash = file_hash
@@ -726,7 +726,7 @@ def test_k1_records_the_knowledge_files_and_the_retrieval_settings(tmp_path):
     ]
     assert header["rag"]["RAG_EMBEDDING_MODEL"] == "BAAI/bge-m3"
     assert header["rag"]["function_calling"] == "legacy"
-    assert header["rag"]["OPENWEBUI_VERSION"] == "0.11.3"
+    assert header["rag"]["OPENWEBUI_VERSION"] == "0.11.4"
     assert "secret" not in json.dumps(header)
     assert len(header["rag"]["sha256"]) == 64
     transcript = (root / PREFLIGHT / f"{TODAY}-K1" / "transcript.md").read_text(encoding="utf-8")

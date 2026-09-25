@@ -194,7 +194,7 @@ def test_settings_are_read_with_get(method, path):
 def test_the_expected_version_is_the_one_whose_source_was_read():
     from scripts.lib.openwebui_client import EXPECTED_VERSION
 
-    assert EXPECTED_VERSION == "0.11.3"
+    assert EXPECTED_VERSION == "0.11.4"
 
 
 def test_refresh_models_rebuilds_the_model_cache_without_returning_the_list():
