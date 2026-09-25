@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>会話まとめ 2026-09-25-01 — 全集本 3 作品を校正済みにし、束への登録は物差しを改めて GO 待ち</title>
+<style>
+  body { font-family: "Segoe UI", "Yu Gothic UI", sans-serif; margin: 24px; color: #222; background: #fafafa; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #333; padding-bottom: 6px; }
+  h2 { margin-top: 32px; border-left: 6px solid #3b82f6; padding-left: 10px; background: #eef3fb; padding: 6px 10px; }
+  h3 { margin-top: 20px; color: #1e3a8a; border-bottom: 1px dashed #93c5fd; padding-bottom: 3px; }
+  h4 { margin-top: 14px; color: #1e40af; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; font-size: 13px; }
+  th, td { border: 1px solid #ccc; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #e5e7eb; font-weight: 600; }
+  tr:nth-child(even) td { background: #f7f7f7; }
+  .ok   { background: #d1fae5 !important; }
+  .warn { background: #fef3c7 !important; }
+  .ng   { background: #fee2e2 !important; }
+  .info { background: #dbeafe !important; }
+  .muted { color: #666; }
+  .pos { color: #059669; font-weight: bold; }
+  .neg { color: #dc2626; font-weight: bold; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: "Consolas", "Courier New", monospace; }
+  pre  { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.45; }
+  ul, ol { line-height: 1.8; }
+
+  /* 会話まとめ固有 */
+  .headline-card { background: #fff; border: 2px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 12px 0 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .headline-card .label { font-size: 12px; color: #1e40af; letter-spacing: 0.05em; }
+  .headline-card .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+  .conclusion { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+
+  /* 会話ログ */
+  .dialog { margin: 14px 0; }
+  .dialog-block { margin: 10px 0; padding: 10px 14px; border-radius: 6px; background: #fff; border: 1px solid #e5e7eb; }
+  .dialog-block.master { border-left: 5px solid #2563eb; background: #eff6ff; }
+  .dialog-block.ai { border-left: 5px solid #6b7280; background: #f9fafb; }
+  .dialog-num { display: inline-block; min-width: 36px; font-family: "Consolas", monospace; font-size: 11px; color: #6b7280; margin-right: 6px; }
+  .speaker-master { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .speaker-ai     { display: inline-block; padding: 2px 8px; border-radius: 3px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+  .dialog-body { margin-top: 6px; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; }
+  .elide { display: inline-block; padding: 1px 8px; margin: 2px 0; background: #f3f4f6; color: #6b7280; font-style: italic; font-size: 12px; border-radius: 3px; border: 1px dashed #d1d5db; }
+</style>
+</head>
+<body>
+
+<h1>会話まとめ 2026-09-25-01</h1>
+<div class="headline-card">
+  <div class="label">HEADLINE</div>
+  <div class="value">全集本 3 作品（三教指帰・性霊集・補闕抄）を校正済みにし、束への登録は物差しを改めて GO 待ち</div>
+</div>
+<p class="meta">実施日: 2026-09-24〜25 / セッション ID: b7917e2b-8c5c-4758-9164-6f4c75c9ecb2 / ブランチ: main（llm01 <code>/home/aiadmin/personal-ai</code>、手元コミット f002d51 は未 push）</p>
+
+<h2>セッション概要</h2>
+<p><strong>起点</strong>：9/23 に国会図書館の『弘法大師全集』（明治 44 年、pid 819284）の頁画像から、三教指帰と性霊集 巻 1〜7 をローカル LLM で読み起こし（124 頁）、旦那様が別の AI に校正を依頼していた。9/23 の常時層の書き換え（出典を語らせない）は稼働中に同期済みだが、コミットされていなかった。Open WebUI は 0.11.4 に上がっており、評価スクリプトの版の照合が止まっていた。</p>
+<ol>
+  <li>校正結果の確かめ方を決める（1 字ずつ見ず、国会図書館 OCR との機械照合＋判定シート）</li>
+  <li>三教指帰・性霊集 巻 1〜7 の校正を反映（252 件中 244 か所）</li>
+  <li>補闕抄（巻 8〜10）の追加：読み起こし → 旦那様の校正 → 反映 → 仕分け（全集の欄外注で疑われた 3 篇を偽託へ）</li>
+  <li>束への登録に着手：資料 4 点・目録・版の照合 0.11.4 を準備、取り合いの確かめで撤退条件に当たり停止</li>
+  <li>物差しの見直し（「辞書ではなく本人の考え・意向」）→ 4 点すべての登録を提案し、会話を区切る</li>
+</ol>
+
+<h2>各段階のサマリ</h2>
+
+<h3>段階 1: 校正結果の確かめ方（トークン消費の懸念への回答）</h3>
+<ul>
+  <li>旦那様の懸念「判定で 1 つずつ検査に入ればトークンを大量消費するのでは」に対し、画像は見ずに国会図書館 OCR との機械照合で振り分け、疑わしい直しだけを 10 か所 1 枚の判定シートで見る方式にした。</li>
+  <li>成功基準：反映率 9 割以上・保留 1 割以下。撤退：保留 3 割超なら一括反映をやめる。抜き取り 10 件で誤り 3 件以上なら全件を見る。</li>
+</ul>
+
+<h3>段階 2: 三教指帰・性霊集 巻 1〜7 の反映</h3>
+<ul>
+  <li>AI の答え：124 頁すべて、直し 252 件すべて位置を特定。保留 40 件（16%）で成功と撤退の中間。</li>
+  <li>判定シート 5 枚＋拡大 3 枚＋構造確認 2 枚（計 10 枚）で確認：抜き取り 10/10 が AI 正解 → 残り約 200 件は見ずに採用。保留 33 件は AI 正 21・元が正 7・私の読み直し 5。</li>
+  <li><span class="neg">訂正</span>：私が「誤りの疑いが濃い」とした 大瀧嶽→獄・舂→春 は、印刷どおり AI が正しかった（他の版の知識に引きずられた私の誤り。前回の正解表の「嶽」も誤り）。</li>
+  <li>構造の直し 7 件：見出し「○喜雨歌」の列の脱落と、性霊集巻二の銘の句の順を採用。三教指帰の後序（意図的に除外）は却下。</li>
+  <li>反映 244 か所（AI 239＋読み直し 5）。写しで試してから本番、作品ファイル 2 つを <code>final/</code> から組み立て直し（前回の assemble.py は途中版から作り直すため使わない）。</li>
+</ul>
+
+<h3>段階 3: 補闕抄の追加</h3>
+<ul>
+  <li>巻 1〜7 に絞ったのは 9/23 の私の提案で、理趣釈経の返書・綜芸種智院式が抜けることを伝えていなかった（落ち度として報告）。</li>
+  <li>国会図書館からコマ 248〜284 を取得、llm01 で 73 頁を読み起こし（約 16 分、失敗 0）。詩の頁 13 頁の句の順は国会図書館 OCR の座標で確認して一致。済暹の後記（f284_L）は除外。</li>
+  <li>旦那様の校正 101 件：保留 18 件（17.8%）、抜き取り 10/10 正、保留は AI 正 12・元が正 5・読み直し 1 → 96 か所反映。</li>
+  <li><strong>国会図書館のコマ 270 はコマ 269 の二重撮影</strong>（印刷の頁 532〜533）。作品ファイルから外し、食い違い 2 字（壞・愚）を確定。全 196 頁でほかの重複なし。</li>
+  <li>仕分け：篇ごとの真偽を載せた無料資料は無し。<strong>全集の編者の欄外注</strong>で疑いが記された 3 篇（有人爲亡親修法事願文・高野四至啓白文・唱鐘知識文）を later-attribution、残り 44 篇を primary とした。</li>
+</ul>
+
+<h3>段階 4: 登録に着手 → 撤退条件で停止</h3>
+<ul>
+  <li>9/23 の常時層の変更（稼働中に同期済み）を f002d51 として単独コミット（文面が引用符で崩れたため、未 push のうちに文面を差し替え）。</li>
+  <li>0.11.3 と 0.11.4 の公開ソースを突き合わせ：束の検索の関数は例外とログの扱いだけの差、モデルに渡す資料の枠は既定の設定で同じ → EXPECTED_VERSION を 0.11.4 に（テスト先行で RED を確認してから）。</li>
+  <li>資料 4 点を作成（篇の題を「## ○」見出しにして篇の境目で切れるように、疑篇の題に「（わたしの作か疑わしい篇）」）。目録は「投入」の列を外し 3 点を著作表へ、疑わしい 3 篇を偽託表へ。テスト全件 GREEN。</li>
+  <li>取り合いの確かめ：稼働中に触れず、4 点だけの試験用の束を作り、0.11.4 の <code>/api/v1/retrieval/query/collection</code> で 32 問の上位 10 箇所を比較（束とファイルは 2 回とも削除済み）。</li>
+  <li><span class="neg">F10 の正解の行が性霊集の献上の表・状に押し出され、枠 15・20 でも戻らない</span>。F13 の年譜も外れる（枠 15 で戻る）。事前の撤退条件どおり登録を停止。</li>
+  <li>発見：モデルが見る資料の名は束の名（kukai-texts）だけで、ファイル名の区分は見えない。これまでは SAT の行 ID と目録で見分けていた。</li>
+</ul>
+
+<h3>段階 5: 物差しの見直し</h3>
+<ul>
+  <li>旦那様「このAIを辞書とするわけではない。本人の考え、意向を反映させた答えを望む」。F10 の答えの箇所はもともと 10 位（類似度 0.715）で、どの資料を足しても落ちる位置だった。</li>
+  <li>教えの中身を問う 9 問は正解の箇所が 1 つも落ちていない。4 点すべての登録を提案（確かめは本人の考えを問う 5 問、成功 3/5 以上、撤退は束から外して目録を戻す）。</li>
+  <li>会話が長くなったため、旦那様の判断でここで区切った。</li>
+</ul>
+
+<h2>数値検証</h2>
+<h3>校正の反映</h3>
+<table>
+  <tr><th>対象</th><th>頁</th><th>直し</th><th>保留（率）</th><th>抜き取り</th><th>保留の内訳（AI 正／元が正／読み直し）</th><th>反映</th><th>見た画像</th></tr>
+  <tr class="ok"><td>三教指帰・性霊集 巻 1〜7</td><td>124</td><td>252</td><td>40（16%）</td><td>10/10 正</td><td>21 ／ 7 ／ 5（＋構造 7 件中 6 採用）</td><td>244</td><td>10 枚</td></tr>
+  <tr class="ok"><td>性霊集補闕抄 巻 8〜10</td><td>72</td><td>101</td><td>18（17.8%）</td><td>10/10 正</td><td>12 ／ 5 ／ 1</td><td>96（＋二重撮影 2 字）</td><td>約 6 枚</td></tr>
+</table>
+<h3>作品ファイル</h3>
+<table>
+  <tr><th>ファイル</th><th>頁</th><th>本文字数</th></tr>
+  <tr><td>三教指帰.md</td><td>33</td><td>8,996</td></tr>
+  <tr><td>性霊集_巻1-7.md</td><td>91</td><td>23,148</td></tr>
+  <tr><td>性霊集補闕抄_巻8-10.md</td><td>70</td><td>18,534（primary 17,928＋疑篇 606）</td></tr>
+</table>
+<h3>取り合いの確かめ（32 問、上位 10 箇所）</h3>
+<table>
+  <tr><th>条件</th><th>正解の行が外れた内容問</th><th>年譜が入る問い</th><th>今の 10 箇所が丸ごと残る問い</th></tr>
+  <tr><td>今の束だけ</td><td>—</td><td>6</td><td>32/32</td></tr>
+  <tr class="warn"><td>4 点を足す（枠 10）</td><td>F10</td><td>5（F13 が外れる）</td><td>9/32</td></tr>
+  <tr class="warn"><td>4 点を足す（枠 15）</td><td>F10</td><td>7</td><td>18/32</td></tr>
+  <tr class="warn"><td>4 点を足す（枠 20）</td><td>F10</td><td>7</td><td>23/32</td></tr>
+</table>
+<p class="muted">教えの中身を問う 9 問（F01〜F04・F06〜F09・F15）は、どの条件でも正解の行が落ちない。新しい資料は 32 問中 23 問で 10 箇所に割り込む（F12・T07 は 9/10）。テストは全件通過。</p>
+
+<h2>最終構成</h2>
+<h3>新規（手元 <code>kukai-texts-ndl\</code>、Git 管理外）</h3>
+<ul>
+  <li><code>final\</code> 196 頁（補闕抄 72 頁を追加。f270_R/L は作品ファイルから除外）、<code>llm\</code> に補闕抄の読み起こし 73 頁</li>
+  <li><code>校正結果\反映記録.tsv</code>（255 行）、<code>校正結果\反映記録_補闕抄.tsv</code>（105 行）</li>
+  <li><code>性霊集補闕抄_巻8-10.md</code>、<code>校正_補闕抄\</code>（渡し方.md と 72 頁分の一式）</li>
+</ul>
+<h3>編集（手元）</h3>
+<ul>
+  <li><code>三教指帰.md</code>・<code>性霊集_巻1-7.md</code>：校正済みの <code>final\</code> から組み立て直し、冒頭の説明を「校正済み」に</li>
+</ul>
+<h3>リポジトリ（llm01）</h3>
+<ul>
+  <li class="warn">コミット <code>f002d51</code> fix(kukai): speak from the texts, not about them（9/23 同期済みの常時層を記録、未 push）</li>
+  <li class="warn">未コミット：<code>knowledge/kukai/primary/primary__三教指帰.md</code>・<code>primary__性霊集.md</code>・<code>primary__性霊集補闕抄.md</code>、<code>later-attribution/later-attribution__性霊集補闕抄_疑篇.md</code>、<code>agents/kukai/agent.yaml</code>、<code>knowledge/kukai/index.md</code>・<code>index-sources.md</code>、<code>scripts/lib/openwebui_client.py</code>（0.11.4）、テスト 4 本</li>
+  <li class="ng">未作成：<code>evaluations/kukai/preflight/2026-09-25-knowledge-ndl/README.md</code>（index-sources.md と openwebui_client.py から参照済み）</li>
+</ul>
+<h3>検証</h3>
+<ul>
+  <li>反映はいずれも写しで試してから本番で実行し、本番の結果は試しと一致。作品ファイルの組み立ては、校正前の読み起こしから以前の本文を一字違わず再現できることを確認。</li>
+  <li>稼働中の空海AI・束・Open WebUI の設定は無変更（試験用の束は作成後に削除）。</li>
+</ul>
+
+<h2>旦那様の重要な気づき</h2>
+<ol>
+  <li>判定が 1 つずつの検査になるなら、トークンを大量に消費するのではないか（→ 機械照合と判定シートに切り替え）。</li>
+  <li>最澄への『理趣釈経』の返書や綜芸種智院式を含む巻 8〜10（補闕抄）を、なぜ一緒に取らなかったのか。目録は当然修正してほしい。</li>
+  <li>補闕抄も入れるようにしよう。</li>
+  <li>「登録しない」は追加の知識を一切足さないという意味か、現象をもっと分かりやすく説明してほしい。</li>
+  <li>御請来目録をいつ誰に託したかなどの問いはどうでも良い。このAIを辞書とするわけではなく、本人の考え・意向を反映させた答えを望んでいる。</li>
+  <li>続ける前に、会話を区切った方が良いのならそうする。</li>
+</ol>
+
+<h2>関連メモリ</h2>
+<ul>
+  <li><code>kukai-ai-project-state</code>：9/23〜25 の読み起こし・校正・補闕抄・登録の停止と次の手順を追記</li>
+  <li><code>kukai-eval-yardstick-faithfulness</code>：「辞書ではなく本人の考え・意向。日付・人名の問いを撤退条件に使わない」を追記</li>
+  <li><code>MEMORY.md</code>：上 2 件の索引の 1 行を更新</li>
+</ul>
+
+<h2>次セッションの推奨手順</h2>
+<h3>残作業（GO を確かめてから）</h3>
+<ol>
+  <li>f002d51 と未コミットの変更をコミットし、GitHub へ push</li>
+  <li><code>scripts/build_knowledge.py</code> で稼働中の束 kukai-texts に 4 点を追加（記録 <code>knowledge-registered.yaml</code> を更新）</li>
+  <li><code>scripts/sync_openwebui.py</code> で目録を常時層へ反映（同期後の dry-run が noop であることを確認）</li>
+  <li>本人の考えを問う 5 問（教育・法の伝え方・亡き人を弔う心・友への思い等）で、関係する篇が 10 箇所に入り答えが趣旨に沿うかを確かめる（成功 3/5 以上、撤退は束から 4 点を外し目録を戻して同期）</li>
+  <li><code>evaluations/kukai/preflight/2026-09-25-knowledge-ndl/README.md</code> を作る（0.11.4 の突き合わせ、読み起こしと校正の経緯、取り合いの結果）</li>
+</ol>
+<h3>次フェーズ候補</h3>
+<ul>
+  <li>f222_L に残る句点「。」6 行の除去（未指示）</li>
+  <li>9/23 の常時層の書き換えの測定（39 回答、版の照合が 0.11.4 になれば取れる）</li>
+</ul>
+<h3>学び</h3>
+<ul>
+  <li>撤退条件は目的に合った問いで置く。日付・人名などの辞書的な問いを関門にしない。</li>
+  <li>F10 の答えの箇所はもともと 10 位で、どの資料を足しても落ちる位置にある。</li>
+  <li>国会図書館 OCR との照合は振り分けには役立つが、判定役としては弱い（同じ形の読み違いを素通りし、新字体のせいで正しい直しを疑う）。</li>
+  <li>私の画像判定も他の版の知識に引きずられることがある（嶽／舂）。印刷どおりを優先する。</li>
+  <li>国会図書館の画像には二重撮影がありうる（頁番号で確かめる）。</li>
+  <li>モデルが見る資料の名は束の名だけ。区分は本文の中（行 ID・見出し）で分かるようにしておく。</li>
+</ul>
+
+<h2>会話ログ</h2>
+<div class="dialog">
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#1</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">再開しよう。他のAIの結果が出たがどうすれば良い？この後の判定はまた１つ１つ検査に入るのならそこでトークンを大量消費するのでは？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#2</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">1 字ずつ画像で確かめない。答えを <code>校正結果\</code> に保存してもらい、国会図書館 OCR との機械照合で振り分け、疑わしいものだけ切り抜いて見る（上限 30 件）。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#3</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">格納した</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#4</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">252 件すべて位置を特定、保留 40 件（16%）。自動採用側に誤りの疑い 2 件、字の直しでない指摘 7 件。判定シート 5 枚での確かめを提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#5</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">とりあえず、見るもののチェックをしてみて</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#6</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">抜き取り 10/10 が AI 正解。保留 33 件は AI 正 21・元が正 7・読み直し 5。疑った 2 件は印刷どおり AI が正しく、私の誤りと訂正。反映は 244 か所の見込み。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#7</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">反映して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#8</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">105 頁 244 か所を反映し、作品ファイル 2 つを作り直した。記録は 反映記録.tsv。f222_L に句点が残る（未処理）。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#9</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">改めて、新しい資料を束へ登録した場合どうなるんだっけ？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#10</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">本人の文を引いて答えられるようになる。代わりに、引く 10 箇所の取り合いで今の答えが崩れるおそれがあり、試験用の束で確かめてから登録するのがよい。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#11</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">最澄への『理趣釈経』の返書や綜芸種智院式は巻 8〜10（補闕抄）も一緒にとらなかったのはなぜか？目録は当然修正してほしい。</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#12</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">偽作を含むため仕分けの手間を避けた私の判断で、大事な篇が抜けることを伝えなかった落ち度。補闕抄（約 73 頁、46 篇前後）も入れ、疑わしい篇だけ偽託に分ける案を提示。目録は登録と同時に直す。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#13</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">補闕抄も入れる様にしよう</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#14</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">72 頁を読み起こし、校正に渡す一式を <code>校正_補闕抄\</code> に用意。篇ごとの真偽を載せた無料資料は見つからず、出典で確かめた篇だけ登録する方へ切り替えを提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#15</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">校正結果_補闕抄.txtと校正結果メモ_補闕抄.txtを格納した</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#16</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">101 件中 96 か所を反映（抜き取り 10/10 正）、作品ファイル 70 頁を作成。コマ 270 は二重撮影で除外。全集の欄外注で疑われた 3 篇を偽託、残りを本人の作とする仕分けを提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#17</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">登録して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#18</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">準備（資料 4 点・目録・版の照合 0.11.4、テスト全件通過）の後、試験用の束で確かめたところ F10 の正解の行が性霊集に押し出され（枠 20 でも戻らない）、撤退条件に当たり登録を停止。稼働中は無変更。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#19</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">登録しないという意味は、追加の知識を一切つき足さないという事であっている？起きている現象をもう少し分かりやすく説明して</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#20</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">その意味で合っている。問いごとに「雰囲気が似た」切れ端 10 枚だけを読む仕組みで、性霊集の献上文が F10 の答えの切れ端（もともと 10 番目）の席を奪う。問題の根は F10 がもともと崖っぷちにあること。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#21</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">御請来目録を、いつ、誰に託して朝廷に差し出したかなんて問いはどうでも良いんだが。このAIを辞書とするわけではない。本人の考え、意向を反映させた答えをする事を望んでいる</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#22</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">物差しの誤りを認めた。教えの中身の 9 問は落ちていない。4 点すべての登録と、本人の考えを問う 5 問での確かめ（成功 3/5 以上）を提案。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#23</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">その前に一旦この会話を区切った方が良いのならそうするが？</div>
+  </div>
+
+  <div class="dialog-block ai">
+    <span class="dialog-num">#24</span>
+    <span class="speaker-ai">AI</span>
+    <div class="dialog-body">区切ることを推奨（会話が長く、1 手ごとの使用量がかさむ）。状態と次の手順は記録に書き足し済み。</div>
+  </div>
+
+  <div class="dialog-block master">
+    <span class="dialog-num">#25</span>
+    <span class="speaker-master">旦那様</span>
+    <div class="dialog-body">では、会話を記録して</div>
+  </div>
+
+</div>
+
+</body>
+</html>
