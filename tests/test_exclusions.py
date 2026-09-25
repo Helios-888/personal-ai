@@ -85,5 +85,7 @@ def test_every_entry_needs_a_reason():
 def test_the_ingested_knowledge_passes_the_holdout_guard():
     files = {str(p.relative_to(KNOWLEDGE)): p.read_text(encoding="utf-8")
              for folder in INGESTED for p in sorted((KNOWLEDGE / folder).glob("*.md"))}
-    assert len(files) == 9, sorted(files)  # 空回りを防ぐ（設計書の資料 9 点）
+    # 空回りを防ぐ（設計書の資料 9 点＋2026-09-25 の全集本 4 点）。全集本には SAT の行 ID が無いので語の見張りは効かない
+    # （ホールドアウトは 2026-09-20 に解放済みで、見張りは監査の記録として続けている）
+    assert len(files) == 13, sorted(files)
     assert problems(files, load_exclusions(EXCLUSIONS.read_text(encoding="utf-8"))) == []

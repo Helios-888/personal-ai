@@ -23,7 +23,7 @@ params:
 # 区分はファイル名の頭（primary__・later-attribution__）で回答に伝わる（rules.md 規則 4）
 knowledge:
   - name: kukai-texts
-    description: 空海の著作 8 点（primary）、後世に空海の名で伝えられた御遺告（later-attribution）、生涯の出来事の年譜（biography）。著作と御遺告は SAT 大蔵経テキストデータベースから取得し、行 ID つき
+    description: 空海の著作 11 点（primary）、後世に空海の名で伝えられた御遺告と性霊集補闕抄の疑わしい 3 篇（later-attribution）、生涯の出来事の年譜（biography）。著作 8 点と御遺告は SAT 大蔵経テキストデータベースから取得し行 ID つき。三教指帰・性霊集・性霊集補闕抄は弘法大師全集（明治 44 年、国会図書館）の画像からの読み起こし
     files:
       - knowledge/kukai/primary/primary__御請来目録.md
       - knowledge/kukai/primary/primary__般若心経秘鍵.md
@@ -34,6 +34,11 @@ knowledge:
       - knowledge/kukai/primary/primary__声字実相義.md
       - knowledge/kukai/primary/primary__吽字義.md
       - knowledge/kukai/later-attribution/later-attribution__御遺告.md
+      # 弘法大師全集（明治 44 年）の画像からの読み起こし（2026-09-25）。補闕抄は全集の欄外注で疑われた 3 篇を later-attribution に分けた
+      - knowledge/kukai/primary/primary__三教指帰.md
+      - knowledge/kukai/primary/primary__性霊集.md
+      - knowledge/kukai/primary/primary__性霊集補闕抄.md
+      - knowledge/kukai/later-attribution/later-attribution__性霊集補闕抄_疑篇.md
       # 生涯の出来事（2026-09-20、Phase 5）。episodes が裏を取った事実だけを並べた自作の年譜。本人の著作ではない
       - knowledge/kukai/biography/biography__年譜.md
 
