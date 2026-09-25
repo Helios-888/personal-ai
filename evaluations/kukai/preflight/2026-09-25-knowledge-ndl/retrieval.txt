@@ -1,0 +1,171 @@
+## V01 r1  関係する篇が入った=True  箇所=10
+   1 0.757 later-attribution__御遺告.md | (見出しの前)
+   2 0.757 primary__性霊集補闕抄.md | 綜藝種智院式并序
+   3 0.749 primary__性霊集補闕抄.md | 綜藝種智院式并序
+   4 0.746 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   5 0.745 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.743 later-attribution__御遺告.md | (見出しの前)
+   7 0.741 primary__秘蔵宝鑰.md | (見出しの前)
+   8 0.740 primary__秘蔵宝鑰.md | (見出しの前)
+   9 0.740 primary__秘蔵宝鑰.md | (見出しの前)
+  10 0.740 later-attribution__御遺告.md | (見出しの前)
+## V02 r1  関係する篇が入った=False  箇所=10
+   1 0.768 later-attribution__御遺告.md | (見出しの前)
+   2 0.766 later-attribution__御遺告.md | (見出しの前)
+   3 0.763 later-attribution__御遺告.md | (見出しの前)
+   4 0.762 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   5 0.761 primary__三教指帰.md | (見出しの前)
+   6 0.760 later-attribution__御遺告.md | (見出しの前)
+   7 0.758 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   8 0.758 primary__性霊集補闕抄.md | 有人爲先師修法事願文
+   9 0.757 primary__性霊集.md | 青龍和尙獻納袈裟狀
+  10 0.756 primary__三教指帰.md | (見出しの前)
+## V03 r1  関係する篇が入った=True  箇所=10
+   1 0.764 primary__性霊集.md | 入山興 雜言
+   2 0.752 primary__性霊集.md | 山中有何樂
+   3 0.743 primary__三教指帰.md | (見出しの前)
+   4 0.739 later-attribution__御遺告.md | (見出しの前)
+   5 0.737 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.736 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   7 0.732 primary__性霊集.md | 沙門勝道歷山水瑩玄珠碑并序
+   8 0.732 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   9 0.732 primary__性霊集.md | 與本國使請共歸啓
+  10 0.731 primary__性霊集補闕抄.md | 於紀伊國伊都郡高野峯被請乞入定處表
+## V04 r1  関係する篇が入った=True  箇所=10
+   1 0.762 later-attribution__御遺告.md | (見出しの前)
+   2 0.743 primary__秘蔵宝鑰.md | (見出しの前)
+   3 0.743 primary__三教指帰.md | (見出しの前)
+   4 0.742 primary__性霊集補闕抄.md | 故贈僧正勤操大德影讚幷序
+   5 0.742 primary__三教指帰.md | (見出しの前)
+   6 0.740 later-attribution__御遺告.md | (見出しの前)
+   7 0.733 primary__秘蔵宝鑰.md | (見出しの前)
+   8 0.732 primary__秘蔵宝鑰.md | (見出しの前)
+   9 0.732 primary__秘密曼荼羅十住心論.md | (見出しの前)
+  10 0.729 primary__秘蔵宝鑰.md | (見出しの前)
+## V05 r1  関係する篇が入った=False  箇所=10
+   1 0.770 primary__性霊集補闕抄.md | 有人爲先舅修法事願文
+   2 0.760 primary__性霊集.md | 爲眞能與右將軍啓
+   3 0.746 primary__性霊集補闕抄.md | 大僧都空海嬰疾上表辭職奏狀
+   4 0.744 primary__性霊集.md | 於平城東大寺供三寶願文一首
+   5 0.744 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.743 primary__性霊集.md | 荒城大夫奉造幡上佛像願文一首
+   7 0.740 primary__性霊集補闕抄.md | 爲弟子求寂眞際入冥扉達覝文
+   8 0.740 primary__性霊集補闕抄.md | 有人爲先師修法事願文
+   9 0.739 later-attribution__性霊集補闕抄_疑篇.md | (見出しの前)
+  10 0.739 primary__性霊集.md | 爲管平章事願文一首
+## V01 r2  関係する篇が入った=True  箇所=10
+   1 0.757 later-attribution__御遺告.md | (見出しの前)
+   2 0.757 primary__性霊集補闕抄.md | 綜藝種智院式并序
+   3 0.749 primary__性霊集補闕抄.md | 綜藝種智院式并序
+   4 0.746 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   5 0.745 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.743 later-attribution__御遺告.md | (見出しの前)
+   7 0.741 primary__秘蔵宝鑰.md | (見出しの前)
+   8 0.740 primary__秘蔵宝鑰.md | (見出しの前)
+   9 0.740 primary__秘蔵宝鑰.md | (見出しの前)
+  10 0.740 later-attribution__御遺告.md | (見出しの前)
+## V02 r2  関係する篇が入った=False  箇所=10
+   1 0.768 later-attribution__御遺告.md | (見出しの前)
+   2 0.766 later-attribution__御遺告.md | (見出しの前)
+   3 0.763 later-attribution__御遺告.md | (見出しの前)
+   4 0.762 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   5 0.761 primary__三教指帰.md | (見出しの前)
+   6 0.760 later-attribution__御遺告.md | (見出しの前)
+   7 0.758 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   8 0.758 primary__性霊集補闕抄.md | 有人爲先師修法事願文
+   9 0.757 primary__性霊集.md | 青龍和尙獻納袈裟狀
+  10 0.756 primary__三教指帰.md | (見出しの前)
+## V03 r2  関係する篇が入った=True  箇所=10
+   1 0.764 primary__性霊集.md | 入山興 雜言
+   2 0.752 primary__性霊集.md | 山中有何樂
+   3 0.743 primary__三教指帰.md | (見出しの前)
+   4 0.739 later-attribution__御遺告.md | (見出しの前)
+   5 0.737 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.736 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   7 0.732 primary__性霊集.md | 沙門勝道歷山水瑩玄珠碑并序
+   8 0.732 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   9 0.732 primary__性霊集.md | 與本國使請共歸啓
+  10 0.731 primary__性霊集補闕抄.md | 於紀伊國伊都郡高野峯被請乞入定處表
+## V04 r2  関係する篇が入った=True  箇所=10
+   1 0.762 later-attribution__御遺告.md | (見出しの前)
+   2 0.743 primary__秘蔵宝鑰.md | (見出しの前)
+   3 0.743 primary__三教指帰.md | (見出しの前)
+   4 0.742 primary__性霊集補闕抄.md | 故贈僧正勤操大德影讚幷序
+   5 0.742 primary__三教指帰.md | (見出しの前)
+   6 0.740 later-attribution__御遺告.md | (見出しの前)
+   7 0.733 primary__秘蔵宝鑰.md | (見出しの前)
+   8 0.732 primary__秘蔵宝鑰.md | (見出しの前)
+   9 0.732 primary__秘密曼荼羅十住心論.md | (見出しの前)
+  10 0.729 primary__秘蔵宝鑰.md | (見出しの前)
+## V05 r2  関係する篇が入った=False  箇所=10
+   1 0.770 primary__性霊集補闕抄.md | 有人爲先舅修法事願文
+   2 0.760 primary__性霊集.md | 爲眞能與右將軍啓
+   3 0.746 primary__性霊集補闕抄.md | 大僧都空海嬰疾上表辭職奏狀
+   4 0.744 primary__性霊集.md | 於平城東大寺供三寶願文一首
+   5 0.744 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.743 primary__性霊集.md | 荒城大夫奉造幡上佛像願文一首
+   7 0.740 primary__性霊集補闕抄.md | 爲弟子求寂眞際入冥扉達覝文
+   8 0.740 primary__性霊集補闕抄.md | 有人爲先師修法事願文
+   9 0.739 later-attribution__性霊集補闕抄_疑篇.md | (見出しの前)
+  10 0.739 primary__性霊集.md | 爲管平章事願文一首
+## V01 r3  関係する篇が入った=True  箇所=10
+   1 0.757 later-attribution__御遺告.md | (見出しの前)
+   2 0.757 primary__性霊集補闕抄.md | 綜藝種智院式并序
+   3 0.749 primary__性霊集補闕抄.md | 綜藝種智院式并序
+   4 0.746 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   5 0.745 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.743 later-attribution__御遺告.md | (見出しの前)
+   7 0.741 primary__秘蔵宝鑰.md | (見出しの前)
+   8 0.740 primary__秘蔵宝鑰.md | (見出しの前)
+   9 0.740 primary__秘蔵宝鑰.md | (見出しの前)
+  10 0.740 later-attribution__御遺告.md | (見出しの前)
+## V02 r3  関係する篇が入った=False  箇所=10
+   1 0.768 later-attribution__御遺告.md | (見出しの前)
+   2 0.766 later-attribution__御遺告.md | (見出しの前)
+   3 0.763 later-attribution__御遺告.md | (見出しの前)
+   4 0.762 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   5 0.761 primary__三教指帰.md | (見出しの前)
+   6 0.760 later-attribution__御遺告.md | (見出しの前)
+   7 0.758 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   8 0.758 primary__性霊集補闕抄.md | 有人爲先師修法事願文
+   9 0.757 primary__性霊集.md | 青龍和尙獻納袈裟狀
+  10 0.756 primary__三教指帰.md | (見出しの前)
+## V03 r3  関係する篇が入った=True  箇所=10
+   1 0.764 primary__性霊集.md | 入山興 雜言
+   2 0.752 primary__性霊集.md | 山中有何樂
+   3 0.743 primary__三教指帰.md | (見出しの前)
+   4 0.739 later-attribution__御遺告.md | (見出しの前)
+   5 0.737 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.736 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   7 0.732 primary__性霊集.md | 沙門勝道歷山水瑩玄珠碑并序
+   8 0.732 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   9 0.732 primary__性霊集.md | 與本國使請共歸啓
+  10 0.731 primary__性霊集補闕抄.md | 於紀伊國伊都郡高野峯被請乞入定處表
+## V04 r3  関係する篇が入った=True  箇所=10
+   1 0.762 later-attribution__御遺告.md | (見出しの前)
+   2 0.743 primary__秘蔵宝鑰.md | (見出しの前)
+   3 0.743 primary__三教指帰.md | (見出しの前)
+   4 0.742 primary__性霊集補闕抄.md | 故贈僧正勤操大德影讚幷序
+   5 0.742 primary__三教指帰.md | (見出しの前)
+   6 0.740 later-attribution__御遺告.md | (見出しの前)
+   7 0.733 primary__秘蔵宝鑰.md | (見出しの前)
+   8 0.732 primary__秘蔵宝鑰.md | (見出しの前)
+   9 0.732 primary__秘密曼荼羅十住心論.md | (見出しの前)
+  10 0.729 primary__秘蔵宝鑰.md | (見出しの前)
+## V05 r3  関係する篇が入った=False  箇所=10
+   1 0.770 primary__性霊集補闕抄.md | 有人爲先舅修法事願文
+   2 0.760 primary__性霊集.md | 爲眞能與右將軍啓
+   3 0.746 primary__性霊集補闕抄.md | 大僧都空海嬰疾上表辭職奏狀
+   4 0.744 primary__性霊集.md | 於平城東大寺供三寶願文一首
+   5 0.744 primary__秘密曼荼羅十住心論.md | (見出しの前)
+   6 0.743 primary__性霊集.md | 荒城大夫奉造幡上佛像願文一首
+   7 0.740 primary__性霊集補闕抄.md | 爲弟子求寂眞際入冥扉達覝文
+   8 0.740 primary__性霊集補闕抄.md | 有人爲先師修法事願文
+   9 0.739 later-attribution__性霊集補闕抄_疑篇.md | (見出しの前)
+  10 0.739 primary__性霊集.md | 爲管平章事願文一首
+
+V01 検索に入った回: 3 / 3
+V02 検索に入った回: 0 / 3
+V03 検索に入った回: 3 / 3
+V04 検索に入った回: 3 / 3
+V05 検索に入った回: 0 / 3
