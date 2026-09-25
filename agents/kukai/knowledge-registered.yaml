@@ -40,6 +40,18 @@ knowledge:
   - path: knowledge/kukai/later-attribution/later-attribution__御遺告.md
     sha256: eec9b9e4b120591df137e15c41ed1ab4d24ce456cad20aa5ad2e3717de1deb3d
     file_id: 24cedd62-5f90-4fd2-9d3a-ce32cc73b119
+  - path: knowledge/kukai/primary/primary__三教指帰.md
+    sha256: 4b0844740437c13f9d2aed6640539097fb1916e05040ea84b20d61a930b5c615
+    file_id: 20cd31c6-3c38-4131-bfa9-7f92f4f0b828
+  - path: knowledge/kukai/primary/primary__性霊集.md
+    sha256: 73431ce170b3bebda522f6470dc277b8a0f49cd81b9d553b2eebca8596690175
+    file_id: a096bba8-b34a-445f-b54d-2515c17627c0
+  - path: knowledge/kukai/primary/primary__性霊集補闕抄.md
+    sha256: 401e73597463f28b182b1906a3b667cbffeef8cc165cbddb9428550a25f23bcb
+    file_id: e898c780-5dc6-4be9-88bf-99c72390cc00
+  - path: knowledge/kukai/later-attribution/later-attribution__性霊集補闕抄_疑篇.md
+    sha256: 3bc4c7aa075a55b1c5172981a9fa0b08ae2100d67f3fcddf9ff686d754754748
+    file_id: af0d765f-fb91-4380-8d54-184cff077084
   - path: knowledge/kukai/biography/biography__年譜.md
     sha256: 5441c721924944929ae64a39f646a85619075526cf94c03e0d171fef299fd5d0
     file_id: 21fc486f-5b4d-4730-a378-0dc3cbf42661
