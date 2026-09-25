@@ -2,7 +2,7 @@
 id: kukai-ai
 name: 空海
 base_model_id: kukai                  # llama-swap のエントリ名（config/platform.yaml と一致）
-description: 空海（弘法大師）の著作と判断様式を再現する対話モデル。RAG 設計と評価手法の学習用。
+description: 空海（弘法大師）の著作と判断様式を再現する対話モデル。
 
 system_prompt:
   # この順で連結する（引き継ぎ書 §3.2 三層構成。常時層＝判断様式・語り口・目録）
